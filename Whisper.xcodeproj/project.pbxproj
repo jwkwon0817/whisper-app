@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E494193E2ECA9B910001A3D0 /* Moya in Frameworks */ = {isa = PBXBuildFile; productRef = E494193D2ECA9B910001A3D0 /* Moya */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		E4337FDD2EBFEE63008F14CF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,9 +33,22 @@
 		E4337FE62EBFEE63008F14CF /* WhisperUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WhisperUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E49419442ECA9EF50001A3D0 /* Exceptions for "Whisper" folder in "Whisper" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E4337FCE2EBFEE62008F14CF /* Whisper */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E4337FD12EBFEE62008F14CF /* Whisper */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E49419442ECA9EF50001A3D0 /* Exceptions for "Whisper" folder in "Whisper" target */,
+			);
 			path = Whisper;
 			sourceTree = "<group>";
 		};
@@ -52,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E494193E2ECA9B910001A3D0 /* Moya in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +130,7 @@
 			);
 			name = Whisper;
 			packageProductDependencies = (
+				E494193D2ECA9B910001A3D0 /* Moya */,
 			);
 			productName = Whisper;
 			productReference = E4337FCF2EBFEE62008F14CF /* Whisper.app */;
@@ -195,6 +214,9 @@
 			);
 			mainGroup = E4337FC62EBFEE62008F14CF;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E494193C2ECA9B910001A3D0 /* XCRemoteSwiftPackageReference "Moya" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E4337FD02EBFEE62008F14CF /* Products */;
 			projectDirPath = "";
@@ -398,6 +420,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Whisper/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -442,6 +465,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Whisper/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -615,6 +639,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E494193C2ECA9B910001A3D0 /* XCRemoteSwiftPackageReference "Moya" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Moya/Moya";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 15.0.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E494193D2ECA9B910001A3D0 /* Moya */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E494193C2ECA9B910001A3D0 /* XCRemoteSwiftPackageReference "Moya" */;
+			productName = Moya;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E4337FC72EBFEE62008F14CF /* Project object */;
 }
