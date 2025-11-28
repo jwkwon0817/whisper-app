@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-/// 플랫폼 독립적인 Navigation Title Display Mode
 enum PlatformNavigationTitleDisplayMode {
     case automatic
     case inline
@@ -27,7 +26,6 @@ enum PlatformNavigationTitleDisplayMode {
     #endif
 }
 
-/// 플랫폼 독립적인 ToolbarItem Placement
 enum PlatformToolbarItemPlacement {
     case automatic
     case principal
@@ -62,7 +60,6 @@ enum PlatformToolbarItemPlacement {
             return .secondaryAction
         }
         #elseif os(macOS)
-        // macOS에서는 navigationBarTrailing/Leading이 없으므로 자동으로 적절한 위치에 배치
         switch self {
         case .automatic:
             return .automatic
@@ -73,7 +70,6 @@ enum PlatformToolbarItemPlacement {
         case .cancellationAction:
             return .cancellationAction
         case .navigationBarTrailing, .navigationBarLeading:
-            // macOS에서는 자동으로 적절한 위치에 배치
             return .automatic
         case .bottomBar:
             return .automatic
@@ -89,18 +85,15 @@ enum PlatformToolbarItemPlacement {
 }
 
 extension View {
-    /// 플랫폼 독립적인 Navigation Title Display Mode 설정
     func platformNavigationBarTitleDisplayMode(_ mode: PlatformNavigationTitleDisplayMode) -> some View {
         #if os(iOS)
         self.navigationBarTitleDisplayMode(mode.uiDisplayMode)
         #else
-        // macOS에서는 navigationBarTitleDisplayMode가 없으므로 무시
         self
         #endif
     }
 }
 
-/// 플랫폼 독립적인 ToolbarItem
 struct PlatformToolbarItem<Content: View>: ToolbarContent {
     let placement: PlatformToolbarItemPlacement
     @ViewBuilder let content: () -> Content

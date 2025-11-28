@@ -10,11 +10,7 @@ import Moya
 
 struct NetworkLoggerPlugin: PluginType {
     func willSend(_ request: RequestType, target: TargetType) {
-        #if DEBUG
-        guard let httpRequest = request.request else {
-            print("⚠️ [NetworkLogger] 요청 객체가 nil입니다")
-            return
-        }
+        guard let httpRequest = request.request else { return }
         
         let url = httpRequest.url?.absoluteString ?? "Unknown URL"
         let method = httpRequest.httpMethod ?? "Unknown"
@@ -25,11 +21,9 @@ struct NetworkLoggerPlugin: PluginType {
         print("📍 URL: \(url)")
         print("🔧 Method: \(method)")
         
-        // 헤더 출력
         if let headers = httpRequest.allHTTPHeaderFields, !headers.isEmpty {
             print("📋 Headers:")
             for (key, value) in headers.sorted(by: { $0.key < $1.key }) {
-                // Authorization 토큰은 일부만 표시
                 if key == "Authorization" {
                     let tokenPreview = String(value.prefix(20)) + "..."
                     print("   \(key): \(tokenPreview)")
@@ -39,10 +33,8 @@ struct NetworkLoggerPlugin: PluginType {
             }
         }
         
-        // Body 출력
         if let httpBody = httpRequest.httpBody {
             if let bodyString = String(data: httpBody, encoding: .utf8) {
-                // 민감한 정보 마스킹
                 let maskedBody = maskSensitiveData(bodyString)
                 print("📦 Body:")
                 print(maskedBody)
@@ -54,11 +46,9 @@ struct NetworkLoggerPlugin: PluginType {
         }
         
         print(String(repeating: "=", count: 80) + "\n")
-        #endif
     }
     
     func didReceive(_ result: Result<Response, MoyaError>, target: TargetType) {
-        #if DEBUG
         switch result {
         case .success(let response):
             let url = response.request?.url?.absoluteString ?? "Unknown URL"
@@ -70,7 +60,6 @@ struct NetworkLoggerPlugin: PluginType {
             print("📍 URL: \(url)")
             print("✅ Status Code: \(statusCode)")
             
-            // 응답 헤더 출력
             if let headers = response.response?.allHeaderFields as? [String: Any], !headers.isEmpty {
                 print("📋 Response Headers:")
                 for (key, value) in headers.sorted(by: { "\($0.key)" < "\($1.key)" }) {
@@ -78,10 +67,8 @@ struct NetworkLoggerPlugin: PluginType {
                 }
             }
             
-            // 응답 Body 출력
             if !response.data.isEmpty {
                 if let responseString = String(data: response.data, encoding: .utf8) {
-                    // 민감한 정보 마스킹
                     let maskedResponse = maskSensitiveData(responseString)
                     print("📦 Response Body:")
                     print(maskedResponse)
@@ -92,7 +79,6 @@ struct NetworkLoggerPlugin: PluginType {
                 print("📦 Response Body: [Empty]")
             }
             
-            // 응답 시간 계산 (대략적)
             if let requestDate = response.request?.value(forHTTPHeaderField: "X-Request-Date") {
                 print("⏱️ Request Date: \(requestDate)")
             }
@@ -153,36 +139,29 @@ struct NetworkLoggerPlugin: PluginType {
             
             print(String(repeating: "=", count: 80) + "\n")
         }
-        #endif
     }
-    
-    // MARK: - 민감한 정보 마스킹
     
     private func maskSensitiveData(_ text: String) -> String {
         var masked = text
         
-        // 패스워드 마스킹
         masked = masked.replacingOccurrences(
             of: #""password"\s*:\s*"[^"]*""#,
             with: #""password":"***"#,
             options: .regularExpression
         )
         
-        // accessToken, refreshToken 마스킹
         masked = masked.replacingOccurrences(
             of: #""(access|refresh)"\s*:\s*"[^"]*""#,
             with: #""$1":"***"#,
             options: .regularExpression
         )
         
-        // encrypted_private_key 마스킹
         masked = masked.replacingOccurrences(
             of: #""encrypted_private_key"\s*:\s*"[^"]*""#,
             with: #""encrypted_private_key":"***"#,
             options: .regularExpression
         )
         
-        // encrypted_content 마스킹 (일부만 표시)
         masked = masked.replacingOccurrences(
             of: #""encrypted_content"\s*:\s*"([^"]{0,20})[^"]*""#,
             with: #""encrypted_content":"$1..."#,

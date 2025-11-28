@@ -7,7 +7,6 @@
 
 import Foundation
 
-// MARK: - ChatRoom Model
 struct ChatRoom: Identifiable, Codable {
     let id: String
     let roomType: RoomType
@@ -42,14 +41,12 @@ struct ChatRoom: Identifiable, Codable {
         case updatedAt = "updated_at"
     }
     
-    // 1:1 채팅인 경우 상대방 이름 반환
     var displayName: String {
         if roomType == .direct {
             if let currentUserId = CurrentUser.shared.id,
                let otherMember = members.first(where: { $0.user.id != currentUserId }) {
                 return otherMember.user.name
             }
-            // CurrentUser가 아직 로드되지 않은 경우, 첫 번째 멤버의 이름 반환
             if let firstMember = members.first {
                 return firstMember.user.name
             }
@@ -57,7 +54,6 @@ struct ChatRoom: Identifiable, Codable {
         return name ?? "채팅방"
     }
     
-    // 마지막 메시지 미리보기
     var lastMessagePreview: String {
         guard let message = lastMessage else { return "" }
         switch message.messageType {
@@ -79,7 +75,6 @@ struct ChatRoom: Identifiable, Codable {
     }
 }
 
-// MARK: - ChatRoomMember Model
 struct ChatRoomMember: Identifiable, Codable {
     let id: String
     let user: User

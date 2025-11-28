@@ -10,7 +10,6 @@ import Moya
 
 class ChatService: BaseService<ChatAPI> {
     private let cacheManager = CacheManager.shared
-    private let optimisticManager = OptimisticUpdateManager.shared
     
     // MARK: - 캐시 관리
     

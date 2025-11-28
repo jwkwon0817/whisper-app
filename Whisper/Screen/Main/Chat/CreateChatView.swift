@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Create Chat View
 struct CreateChatView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var friendListViewModel = FriendListViewModel()
@@ -32,7 +31,6 @@ struct CreateChatView: View {
     var body: some View {
         NavigationView {
             Form {
-                // 채팅 타입 선택
                 Section {
                     Picker("채팅 타입", selection: $selectedChatType) {
                         Text("1:1 채팅").tag(ChatType.direct)
@@ -42,7 +40,6 @@ struct CreateChatView: View {
                 }
                 
                 if selectedChatType == .direct {
-                    // 1:1 채팅 선택
                     Section {
                         if friendListViewModel.friends.isEmpty {
                             Text("친구가 없습니다.")
@@ -53,7 +50,6 @@ struct CreateChatView: View {
                                     selectedFriend = friend
                                 }) {
                                     HStack {
-                                        // 프로필 이미지
                                         if let profileImageUrl = friend.otherUser.profileImage,
                                            let url = URL(string: profileImageUrl) {
                                             AsyncImage(url: url) { image in
@@ -95,7 +91,6 @@ struct CreateChatView: View {
                         Text("친구 선택")
                     }
                 } else {
-                    // 그룹 채팅 설정
                     Section {
                         TextField("그룹 이름", text: $groupName)
                             .padding(.vertical, 16)
@@ -122,7 +117,6 @@ struct CreateChatView: View {
                                     }
                                 }) {
                                     HStack {
-                                        // 프로필 이미지
                                         if let profileImageUrl = friend.otherUser.profileImage,
                                            let url = URL(string: profileImageUrl) {
                                             AsyncImage(url: url) { image in
@@ -169,7 +163,6 @@ struct CreateChatView: View {
                     }
                 }
                 
-                // 생성 버튼
                 Section {
                     Button(action: {
                         Task {

@@ -14,33 +14,36 @@ struct NotificationBanner: View {
     let onTap: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "bubble.left.fill")
-                    .foregroundColor(.blue)
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Spacer()
-                Text("지금")
-                    .font(.caption)
+        GeometryReader { geometry in
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Image(systemName: "bubble.left.fill")
+                        .foregroundColor(.blue)
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Text("지금")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Text(message)
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .lineLimit(2)
             }
-            
-            Text(message)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .lineLimit(2)
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+            )
+            .padding(.horizontal)
+            .padding(.top, geometry.safeAreaInsets.top + 8) // Safe area + 8pt 여유
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-        )
-        .padding(.horizontal)
-        .padding(.top, 60) // Top safe area padding consideration
+        .frame(height: 90) // 배너 높이 고정
         .onTapGesture {
             onTap()
         }

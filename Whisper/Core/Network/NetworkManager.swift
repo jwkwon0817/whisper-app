@@ -39,37 +39,23 @@ class NetworkManager {
         NetworkLoggerPlugin()
     ]
     
+    // MARK: - Provider Factory
+    
+    private func createProvider<T: TargetType>() -> MoyaProvider<T> {
+        MoyaProvider<T>(
+            session: Session(configuration: urlSessionConfiguration),
+            plugins: plugins
+        )
+    }
+    
     // MARK: - Moya Providers (macOS 호환)
 
-    lazy var userProvider: MoyaProvider<UserAPI> = .init(
-        session: Session(configuration: urlSessionConfiguration),
-        plugins: plugins
-    )
-    
-    lazy var authProvider: MoyaProvider<AuthAPI> = .init(
-        session: Session(configuration: urlSessionConfiguration),
-        plugins: plugins
-    )
-    
-    lazy var deviceProvider: MoyaProvider<DeviceAPI> = .init(
-        session: Session(configuration: urlSessionConfiguration),
-        plugins: plugins
-    )
-    
-    lazy var chatProvider: MoyaProvider<ChatAPI> = .init(
-        session: Session(configuration: urlSessionConfiguration),
-        plugins: plugins
-    )
-    
-    lazy var friendProvider: MoyaProvider<FriendAPI> = .init(
-        session: Session(configuration: urlSessionConfiguration),
-        plugins: plugins
-    )
-    
-    lazy var fileUploadProvider: MoyaProvider<FileUploadAPI> = .init(
-        session: Session(configuration: urlSessionConfiguration),
-        plugins: plugins
-    )
+    lazy var userProvider: MoyaProvider<UserAPI> = createProvider()
+    lazy var authProvider: MoyaProvider<AuthAPI> = createProvider()
+    lazy var deviceProvider: MoyaProvider<DeviceAPI> = createProvider()
+    lazy var chatProvider: MoyaProvider<ChatAPI> = createProvider()
+    lazy var friendProvider: MoyaProvider<FriendAPI> = createProvider()
+    lazy var fileUploadProvider: MoyaProvider<FileUploadAPI> = createProvider()
     
     lazy var authService: AuthService = .init(provider: authProvider, decoder: decoder)
     

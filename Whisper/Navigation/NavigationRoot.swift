@@ -112,6 +112,7 @@ struct NavigationRoot: View {
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(100)
+                .ignoresSafeArea(edges: .top) // Safe area 무시하고 맨 위에 배치
             }
         }
         .onReceive(NotificationManager.shared.newMessageReceived) { notification in

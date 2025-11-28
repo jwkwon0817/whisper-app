@@ -7,7 +7,6 @@
 
 import Foundation
 
-// MARK: - GroupChatInvitation Model
 struct GroupChatInvitation: Identifiable, Codable {
     let id: String
     let room: ChatRoom

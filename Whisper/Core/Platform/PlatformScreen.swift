@@ -13,7 +13,6 @@ import UIKit
 import AppKit
 #endif
 
-/// 플랫폼 독립적인 Screen 정보
 struct PlatformScreen {
     static var main: PlatformScreen {
         PlatformScreen()

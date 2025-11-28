@@ -7,7 +7,6 @@
 
 import Foundation
 
-// MARK: - ChatFolder Model
 struct ChatFolder: Identifiable, Codable {
     let id: String
     let name: String
@@ -30,7 +29,6 @@ struct ChatFolder: Identifiable, Codable {
     }
 }
 
-// MARK: - ChatFolderRoom Model
 struct ChatFolderRoom: Identifiable, Codable {
     let id: String
     let folder: String

@@ -7,7 +7,6 @@
 
 import Foundation
 
-// MARK: - Create Direct Chat Request
 struct CreateDirectChatRequest: Codable {
     let userId: String
     
@@ -16,7 +15,6 @@ struct CreateDirectChatRequest: Codable {
     }
 }
 
-// MARK: - Create Group Chat Request
 struct CreateGroupChatRequest: Codable {
     let name: String
     let description: String?
@@ -29,7 +27,6 @@ struct CreateGroupChatRequest: Codable {
     }
 }
 
-// MARK: - Mark Messages Read Request
 struct MarkMessagesReadRequest: Codable {
     let messageIds: [String]
     
@@ -38,7 +35,6 @@ struct MarkMessagesReadRequest: Codable {
     }
 }
 
-// MARK: - Message List Response
 struct MessageListResponse: Codable {
     let results: [Message]
     let page: Int

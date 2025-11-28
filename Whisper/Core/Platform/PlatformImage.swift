@@ -15,7 +15,6 @@ import AppKit
 typealias PlatformImageType = NSImage
 #endif
 
-/// 플랫폼 독립적인 Image 래퍼
 struct PlatformImage {
     #if os(iOS)
     private let uiImage: UIImage

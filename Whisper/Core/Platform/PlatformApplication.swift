@@ -13,7 +13,6 @@ import UIKit
 import AppKit
 #endif
 
-/// 플랫폼 독립적인 Application 래퍼
 struct PlatformApplication {
     static var shared: PlatformApplication {
         PlatformApplication()

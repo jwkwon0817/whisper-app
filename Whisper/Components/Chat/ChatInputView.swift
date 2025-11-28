@@ -8,6 +8,7 @@
 import SwiftUI
 
 // MARK: - Chat Input Component
+
 struct ChatInputView: View {
     @Binding var messageText: String
     @Binding var replyToMessage: Message?
@@ -42,21 +43,18 @@ struct ChatInputView: View {
         .background(Color(.systemBackground))
     }
     
-    // MARK: - Input Field View
     private var inputFieldView: some View {
         HStack(spacing: 12) {
-            // 이미지 선택 버튼
             Button(action: onImageSelect) {
                 Image(systemName: "photo")
                     .font(.system(size: 20))
                     .foregroundColor(.blue)
             }
             
-            // 텍스트 입력 필드
             TextField("메시지 입력", text: $messageText, axis: .vertical)
                 .padding(.vertical, 16)
-                .padding(.horizontal, 20)
-                .lineLimit(1...5)
+                .padding(.horizontal, 8)
+                .lineLimit(1 ... 5)
                 .focused($isFocused)
                 .onChange(of: messageText) { _, _ in
                     onTyping(true)
@@ -80,6 +78,7 @@ struct ChatInputView: View {
 }
 
 // MARK: - Reply To Header Component
+
 struct ReplyToHeaderView: View {
     let replyTo: Message
     let onDismiss: () -> Void
@@ -110,6 +109,7 @@ struct ReplyToHeaderView: View {
 }
 
 // MARK: - Editing Header Component
+
 struct EditingHeaderView: View {
     let message: Message
     let onDismiss: () -> Void

@@ -7,7 +7,6 @@
 
 import Foundation
 
-// MARK: - Friend Model
 struct Friend: Identifiable, Codable, Hashable {
     let id: String
     let requester: User
@@ -31,13 +30,11 @@ struct Friend: Identifiable, Codable, Hashable {
         case updatedAt = "updated_at"
     }
     
-    // 현재 사용자가 요청자인지 확인
     var isRequester: Bool {
         guard let currentUserId = CurrentUser.shared.id else { return false }
         return requester.id == currentUserId
     }
     
-    // 상대방 사용자 반환
     var otherUser: User {
         isRequester ? receiver : requester
     }

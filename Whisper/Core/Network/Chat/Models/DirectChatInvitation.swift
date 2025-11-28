@@ -7,7 +7,6 @@
 
 import Foundation
 
-// MARK: - DirectChatInvitation Model
 struct DirectChatInvitation: Identifiable, Codable {
     let id: String
     let roomType: String
@@ -36,13 +35,12 @@ struct DirectChatInvitation: Identifiable, Codable {
     }
 }
 
-// MARK: - ChatInvitation (통합 모델)
 struct ChatInvitation: Identifiable, Codable {
     let id: String
     let type: InvitationType
     let inviter: User
     let invitee: User
-    let room: ChatRoom?  // 1:1 채팅은 room이 없음
+    let room: ChatRoom?
     let status: InvitationStatus
     let createdAt: String
     let updatedAt: String
@@ -70,7 +68,6 @@ struct ChatInvitation: Identifiable, Codable {
     }
 }
 
-// MARK: - Invitation Response Request
 struct InvitationResponseRequest: Codable {
-    let action: String  // "accept" or "reject"
+    let action: String
 }

@@ -11,7 +11,6 @@ import SwiftUI
 import UIKit
 #endif
 
-/// 플랫폼 독립적인 Keyboard Type
 enum PlatformKeyboardType {
     case `default`
     case asciiCapable
@@ -59,12 +58,10 @@ enum PlatformKeyboardType {
 }
 
 extension View {
-    /// 플랫폼 독립적인 Keyboard Type 설정
     func platformKeyboardType(_ type: PlatformKeyboardType) -> some View {
         #if os(iOS)
         self.keyboardType(type.uiKeyboardType)
         #else
-        // macOS에서는 keyboardType이 없으므로 무시
         self
         #endif
     }

@@ -13,7 +13,6 @@ import UIKit
 import AppKit
 #endif
 
-/// 플랫폼 독립적인 Blur Effect
 enum PlatformBlurStyle {
     case ultraThinMaterial
     case thinMaterial

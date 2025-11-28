@@ -9,8 +9,6 @@ import Combine
 import Foundation
 import Moya
 
-// MARK: - Friend Request ViewModel
-
 class FriendRequestViewModel: ObservableObject {
     @Published var receivedRequests: [Friend] = []
     @Published var isLoading = false

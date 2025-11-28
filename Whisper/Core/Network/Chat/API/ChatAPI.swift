@@ -23,9 +23,9 @@ enum ChatAPI {
     case addChatRoomMembers(roomId: String, userIds: [String])
     case removeChatRoomMember(roomId: String, userId: String)
     case sendGroupChatInvitation(roomId: String, userId: String)
-    case fetchAllChatInvitations  // 통합 초대 목록 (1:1 + 그룹)
-    case fetchDirectChatInvitations  // 1:1 초대 목록만
-    case fetchGroupChatInvitations  // 그룹 초대 목록만
+    case fetchAllChatInvitations
+    case fetchDirectChatInvitations
+    case fetchGroupChatInvitations
     case respondToDirectChatInvitation(invitationId: String, action: String)
     case respondToGroupChatInvitation(invitationId: String, action: String)
     case fetchChatFolders

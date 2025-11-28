@@ -10,18 +10,14 @@ import Combine
 
 // MARK: - Chat Room List ViewModel
 @MainActor
-class ChatRoomListViewModel: ObservableObject {
+class ChatRoomListViewModel: BaseViewModelImpl {
     @Published var rooms: [ChatRoom] = []
     @Published var folders: [ChatFolder] = []
     @Published var selectedFolderId: String? = nil
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    @Published var showError = false
     
     private let apiService = NetworkManager.shared.chatService
     private let folderViewModel = ChatFolderViewModel()
     private let wsManager = ChatWebSocketManager.shared
-    private var cancellables = Set<AnyCancellable>()
     
     // 선택된 폴더에 따라 필터링된 채팅방 목록
     var filteredRooms: [ChatRoom] {

@@ -7,7 +7,6 @@
 
 import Foundation
 
-/// 복호화된 메시지를 디스크에 영구 저장하는 캐시
 actor DecryptedMessageCache {
     static let shared = DecryptedMessageCache()
     
@@ -26,42 +25,28 @@ actor DecryptedMessageCache {
     
     /// 복호화된 메시지 저장
     func save(roomId: String, messageId: String, decryptedContent: String) async {
-        // 버그 수정: 빈 문자열은 저장하지 않음
         guard !decryptedContent.isEmpty else {
-            #if DEBUG
-            print("⚠️ [DecryptedMessageCache] 빈 문자열 저장 시도 무시: \(messageId)")
-            #endif
             return
         }
         
-        // 메모리 캐시에 저장
         if memoryCache[roomId] == nil {
             memoryCache[roomId] = [:]
         }
         memoryCache[roomId]?[messageId] = decryptedContent
         
-        // 디스크에 저장 (동기적으로 완료 확인)
         let success = await saveToDisk(roomId: roomId, messageId: messageId, decryptedContent: decryptedContent)
         
-        // 버그 수정: 디스크 저장 실패 시 메모리 캐시도 롤백
         if !success {
             memoryCache[roomId]?.removeValue(forKey: messageId)
-            #if DEBUG
-            print("⚠️ [DecryptedMessageCache] 디스크 저장 실패로 메모리 캐시도 롤백: \(messageId)")
-            #endif
         }
     }
     
-    /// 복호화된 메시지 조회
     func get(roomId: String, messageId: String) async -> String? {
-        // 메모리 캐시에서 먼저 확인
         if let cached = memoryCache[roomId]?[messageId] {
             return cached
         }
         
-        // 디스크에서 조회
         if let content = await getFromDisk(roomId: roomId, messageId: messageId) {
-            // 메모리 캐시에도 저장
             if memoryCache[roomId] == nil {
                 memoryCache[roomId] = [:]
             }
@@ -72,14 +57,11 @@ actor DecryptedMessageCache {
         return nil
     }
     
-    /// 특정 채팅방의 모든 복호화된 메시지 조회
     func getAll(roomId: String) async -> [String: String] {
-        // 메모리 캐시에 있으면 반환
         if let cached = memoryCache[roomId], !cached.isEmpty {
             return cached
         }
         
-        // 디스크에서 전체 로드
         let messages = await getAllFromDisk(roomId: roomId)
         if !messages.isEmpty {
             memoryCache[roomId] = messages
@@ -87,18 +69,14 @@ actor DecryptedMessageCache {
         return messages
     }
     
-    /// 특정 메시지의 캐시 삭제
     func remove(roomId: String, messageId: String) async {
-        // 메모리 캐시에서 삭제
         memoryCache[roomId]?.removeValue(forKey: messageId)
         
-        // 디스크에서 삭제
         let roomDirectory = cacheDirectory.appendingPathComponent(roomId)
         let fileURL = roomDirectory.appendingPathComponent("\(messageId).txt")
         try? FileManager.default.removeItem(at: fileURL)
     }
     
-    /// 특정 채팅방의 모든 캐시 삭제
     func remove(roomId: String) async {
         memoryCache.removeValue(forKey: roomId)
         
@@ -106,14 +84,11 @@ actor DecryptedMessageCache {
         try? FileManager.default.removeItem(at: roomDirectory)
     }
     
-    /// 모든 캐시 삭제
     func clearAll() async {
         memoryCache.removeAll()
         try? FileManager.default.removeItem(at: cacheDirectory)
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
     }
-    
-    // MARK: - Private Methods
     
     private func saveToDisk(roomId: String, messageId: String, decryptedContent: String) async -> Bool {
         let roomDirectory = cacheDirectory.appendingPathComponent(roomId)
@@ -121,9 +96,6 @@ actor DecryptedMessageCache {
         do {
             try FileManager.default.createDirectory(at: roomDirectory, withIntermediateDirectories: true)
         } catch {
-            #if DEBUG
-            print("❌ [DecryptedMessageCache] 디렉토리 생성 실패: \(error)")
-            #endif
             return false
         }
         
@@ -133,9 +105,6 @@ actor DecryptedMessageCache {
             try decryptedContent.write(to: fileURL, atomically: true, encoding: .utf8)
             return true
         } catch {
-            #if DEBUG
-            print("❌ [DecryptedMessageCache] 디스크 저장 실패: \(error)")
-            #endif
             return false
         }
     }
@@ -150,12 +119,6 @@ actor DecryptedMessageCache {
         do {
             return try String(contentsOf: fileURL, encoding: .utf8)
         } catch {
-            #if DEBUG
-            print("⚠️ [DecryptedMessageCache] 캐시 로드 실패 (손상된 캐시일 수 있음): \(roomId)/\(messageId)")
-            print("   에러: \(error)")
-            #endif
-            
-            // 손상된 캐시 파일 삭제
             try? FileManager.default.removeItem(at: fileURL)
             
             return nil

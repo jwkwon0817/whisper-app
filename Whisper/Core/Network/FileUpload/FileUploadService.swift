@@ -38,7 +38,7 @@ extension FileUploadAPI: TargetType {
     }
     
     var headers: [String: String]? {
-        return nil // Moya가 자동으로 multipart/form-data 설정
+        return nil
     }
     
     var validationType: ValidationType {
@@ -61,7 +61,6 @@ class FileUploadService: BaseService<FileUploadAPI> {
         )
     }
     
-    // MARK: - 파일 업로드
     func uploadFile(data: Data, fileName: String, contentType: String, folder: String = "chat") async throws -> Asset {
         return try await request(.uploadFile(data: data, fileName: fileName, contentType: contentType, folder: folder), as: Asset.self)
     }

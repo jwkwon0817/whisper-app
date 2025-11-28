@@ -9,7 +9,6 @@ import Foundation
 import Combine
 import SwiftUI
 
-// MARK: - Base ViewModel Protocol
 @MainActor
 protocol BaseViewModel: ObservableObject {
     var isLoading: Bool { get set }
@@ -17,7 +16,6 @@ protocol BaseViewModel: ObservableObject {
     var showError: Bool { get set }
 }
 
-// MARK: - Base ViewModel Implementation
 @MainActor
 class BaseViewModelImpl: ObservableObject {
     @Published var isLoading = false

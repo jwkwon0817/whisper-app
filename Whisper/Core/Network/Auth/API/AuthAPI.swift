@@ -65,18 +65,15 @@ extension AuthAPI: TargetType {
         case .register(let phoneNumber, let password, let name, let verifiedToken, let profileImage, let publicKey, let encryptedPrivateKey, let deviceName, let deviceFingerprint):
             var formData: [Moya.MultipartFormData] = []
             
-            // 필수 필드들
             formData.append(Moya.MultipartFormData(provider: .data(phoneNumber.data(using: .utf8)!), name: "phone_number"))
             formData.append(Moya.MultipartFormData(provider: .data(password.data(using: .utf8)!), name: "password"))
             formData.append(Moya.MultipartFormData(provider: .data(name.data(using: .utf8)!), name: "name"))
             formData.append(Moya.MultipartFormData(provider: .data(verifiedToken.data(using: .utf8)!), name: "verified_token"))
             
-            // 선택 필드: 프로필 이미지
             if let profileImage = profileImage {
                 formData.append(Moya.MultipartFormData(provider: .data(profileImage), name: "profile_image", fileName: "profile.jpg", mimeType: "image/jpeg"))
             }
             
-            // E2EE 필드들
             if !publicKey.isEmpty {
                 formData.append(Moya.MultipartFormData(provider: .data(publicKey.data(using: .utf8)!), name: "public_key"))
             }
@@ -93,7 +90,6 @@ extension AuthAPI: TargetType {
         
         switch self {
         case .register:
-            // multipart/form-data는 Moya가 자동으로 boundary와 함께 설정함
             break
         case .logout:
             headers["Content-Type"] = "application/json"

@@ -10,17 +10,14 @@ import Combine
 
 // MARK: - Friend List ViewModel
 @MainActor
-class FriendListViewModel: ObservableObject {
+class FriendListViewModel: BaseViewModelImpl {
     @Published var friends: [Friend] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    @Published var showError = false
     
     private let apiService = NetworkManager.shared.friendService
     private let notificationManager = NotificationManager.shared
-    private var cancellables = Set<AnyCancellable>()
     
-    init() {
+    override init() {
+        super.init()
         setupNotificationSubscription()
     }
     
