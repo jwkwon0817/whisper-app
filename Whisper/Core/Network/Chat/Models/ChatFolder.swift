@@ -12,6 +12,7 @@ struct ChatFolder: Identifiable, Codable {
     let id: String
     let name: String
     let color: String
+    let icon: String
     let order: Int
     let roomCount: Int
     let createdAt: String
@@ -21,6 +22,7 @@ struct ChatFolder: Identifiable, Codable {
         case id
         case name
         case color
+        case icon
         case order
         case roomCount = "room_count"
         case createdAt = "created_at"

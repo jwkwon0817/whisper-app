@@ -8,7 +8,7 @@
 import Foundation
 
 // MARK: - Friend Model
-struct Friend: Identifiable, Codable {
+struct Friend: Identifiable, Codable, Hashable {
     let id: String
     let requester: User
     let receiver: User

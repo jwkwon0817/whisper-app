@@ -10,7 +10,7 @@ import SwiftUI
 @Observable
 class Router {
     // 각 탭마다 독립적인 네비게이션 스택
-    private var paths: [TabRoute: NavigationPath] = [:]
+    var paths: [TabRoute: NavigationPath] = [:]
     
     var path: NavigationPath {
         get {
@@ -23,6 +23,9 @@ class Router {
     
     var presentedSheet: Route?
     var presentedFullScreen: Route?
+    
+    // 현재 활성화된 채팅방 ID (알림 필터링용)
+    var currentActiveChatRoomId: String?
     
     var selectedTab: TabRoute = .home {
         didSet {

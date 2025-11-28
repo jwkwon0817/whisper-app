@@ -9,8 +9,14 @@ import SwiftUI
 
 extension View {
     func hideKeyboardOnTap() -> some View {
-        self.simultaneousGesture(
-            TapGesture().onEnded { _ in
+        let isPreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        
+        if isPreview {
+            return AnyView(self)
+        }
+        
+        return AnyView(
+            self.onTapGesture {
                 PlatformApplication.shared.resignFirstResponder()
             }
         )

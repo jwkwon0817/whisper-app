@@ -17,6 +17,8 @@ struct ChatRoom: Identifiable, Codable {
     let members: [ChatRoomMember]
     let memberCount: Int
     let lastMessage: Message?
+    let folderIds: [String]
+    let unreadCount: Int
     let createdAt: String
     let updatedAt: String
     
@@ -34,16 +36,23 @@ struct ChatRoom: Identifiable, Codable {
         case members
         case memberCount = "member_count"
         case lastMessage = "last_message"
+        case folderIds = "folder_ids"
+        case unreadCount = "unread_count"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
     
     // 1:1 채팅인 경우 상대방 이름 반환
     var displayName: String {
-        if roomType == .direct,
-           let currentUserId = CurrentUser.shared.id,
-           let otherMember = members.first(where: { $0.user.id != currentUserId }) {
-            return otherMember.user.name
+        if roomType == .direct {
+            if let currentUserId = CurrentUser.shared.id,
+               let otherMember = members.first(where: { $0.user.id != currentUserId }) {
+                return otherMember.user.name
+            }
+            // CurrentUser가 아직 로드되지 않은 경우, 첫 번째 멤버의 이름 반환
+            if let firstMember = members.first {
+                return firstMember.user.name
+            }
         }
         return name ?? "채팅방"
     }

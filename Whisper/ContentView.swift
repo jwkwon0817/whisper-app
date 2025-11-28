@@ -33,13 +33,12 @@ struct ContentView: View {
         .environment(router)
         .task {
             await checkAuth()
-            // 로그인 성공 시 알림 WebSocket 연결
+            
             if isLoggedIn {
                 NotificationManager.shared.connect()
             }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
-            // 앱이 포그라운드로 돌아올 때 인증 상태 확인
             if oldPhase == .background && newPhase == .active {
                 Task {
                     await checkAuth()
@@ -47,30 +46,29 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .userDidLogout)) { _ in
-            // 로그아웃 시 NavigationStack 초기화
             router.path = NavigationPath()
             isLoggedIn = false
         }
     }
     
     private func checkAuth() async {
-        // 토큰이 있으면 자동으로 로그인 상태 유지
         if let accessToken = KeychainHelper.getItem(forAccount: "accessToken"),
            !accessToken.isEmpty {
             do {
-                // 토큰 유효성 검증 (BaseService가 자동으로 refresh 처리)
-                _ = try await NetworkManager.shared.userService.fetchMe()
+                let user = try await NetworkManager.shared.userService.fetchMe()
+                CurrentUser.shared.update(user: user)
                 isLoggedIn = true
             } catch {
-                // 토큰이 유효하지 않으면 삭제하고 로그인 화면으로
                 KeychainHelper.removeItem(forAccount: "accessToken")
                 KeychainHelper.removeItem(forAccount: "refreshToken")
+                KeychainHelper.removeItem(forAccount: "user_password")
                 E2EEKeyManager.shared.deleteEncryptedPrivateKey()
+                CurrentUser.shared.clear()
                 isLoggedIn = false
             }
         } else {
-            // 토큰이 없으면 로그인 화면으로
             isLoggedIn = false
+            CurrentUser.shared.clear()
         }
         
         isCheckingAuth = false

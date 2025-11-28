@@ -18,6 +18,7 @@ struct AppNotification: Identifiable, Codable {
     enum NotificationType: String, Codable {
         case friendRequest = "friend_request"
         case groupChatInvitation = "group_chat_invitation"
+        case newMessage = "new_message"
     }
     
     enum CodingKeys: String, CodingKey {
@@ -36,12 +37,40 @@ struct NotificationData: Codable {
     let userId: String?
     let userName: String?
     
+    // MARK: - Chat Notification Fields
+    let messageId: String?
+    let messageType: String?
+    let content: String?
+    let encryptedContent: String?
+    let encryptedSessionKey: String?
+    let sender: SenderInfo?
+    
     enum CodingKeys: String, CodingKey {
         case friendId = "friend_id"
         case invitationId = "invitation_id"
         case roomId = "room_id"
         case userId = "user_id"
         case userName = "user_name"
+        
+        case messageId = "message_id"
+        case messageType = "message_type"
+        case content
+        case encryptedContent = "encrypted_content"
+        case encryptedSessionKey = "encrypted_session_key"
+        case sender
+    }
+}
+
+// MARK: - Sender Info
+struct SenderInfo: Codable {
+    let id: String
+    let name: String
+    let profileImage: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case profileImage = "profile_image"
     }
 }
 
@@ -63,10 +92,24 @@ class NotificationWebSocketManager: ObservableObject {
     
     // MARK: - 연결
     func connect(accessToken: String) {
+        #if DEBUG
+        print("\n" + String(repeating: "=", count: 80))
+        print("🔌 [NotificationWebSocket] 연결 시도")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        #endif
+        
         guard let url = buildWebSocketURL(token: accessToken) else {
+            #if DEBUG
+            print("❌ [NotificationWebSocket] WebSocket URL 생성 실패")
+            print(String(repeating: "=", count: 80) + "\n")
+            #endif
             connectionError = "Invalid WebSocket URL"
             return
         }
+        
+        #if DEBUG
+        print("🌐 WebSocket URL: \(url.absoluteString)")
+        #endif
         
         let session = URLSession(configuration: .default)
         webSocketTask = session.webSocketTask(with: url)
@@ -76,11 +119,22 @@ class NotificationWebSocketManager: ObservableObject {
         isConnected = true
         connectionError = nil
         
+        #if DEBUG
+        print("✅ [NotificationWebSocket] 연결 시작")
+        print(String(repeating: "=", count: 80) + "\n")
+        #endif
+        
         receiveNotification()
     }
     
     // MARK: - 연결 해제
     func disconnect() {
+        #if DEBUG
+        print("\n" + String(repeating: "=", count: 80))
+        print("🔌 [NotificationWebSocket] 연결 해제")
+        print(String(repeating: "=", count: 80) + "\n")
+        #endif
+        
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         urlSession = nil
@@ -98,7 +152,13 @@ class NotificationWebSocketManager: ObservableObject {
                 self.receiveNotification()  // 다음 알림 수신 대기
                 
             case .failure(let error):
-                print("Notification WebSocket receive error: \(error)")
+                #if DEBUG
+                print("\n" + String(repeating: "=", count: 80))
+                print("❌ [NotificationWebSocket] 메시지 수신 실패")
+                print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                print("🔴 Error: \(error.localizedDescription)")
+                print(String(repeating: "=", count: 80) + "\n")
+                #endif
                 Task { @MainActor in
                     self.isConnected = false
                 }
@@ -110,7 +170,19 @@ class NotificationWebSocketManager: ObservableObject {
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
         switch message {
         case .string(let text):
+            #if DEBUG
+            print("\n" + String(repeating: "-", count: 80))
+            print("📨 [NotificationWebSocket] 메시지 수신")
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            print("📦 원본 메시지:")
+            print(text)
+            #endif
+            
             guard let data = text.data(using: .utf8) else {
+                #if DEBUG
+                print("❌ [NotificationWebSocket] 문자열을 데이터로 변환 실패")
+                print(String(repeating: "-", count: 80) + "\n")
+                #endif
                 return
             }
             
@@ -118,18 +190,40 @@ class NotificationWebSocketManager: ObservableObject {
             decoder.dateDecodingStrategy = .iso8601
             
             do {
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let type = json["type"] as? String,
-                   type == "notification",
-                   let notificationData = json["notification"] as? [String: Any],
-                   let notificationJsonData = try? JSONSerialization.data(withJSONObject: notificationData),
-                   let notification = try? decoder.decode(AppNotification.self, from: notificationJsonData) {
-                    Task { @MainActor in
-                        self.receivedNotification.send(notification)
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    #if DEBUG
+                    print("📋 JSON 구조:")
+                    print(json)
+                    #endif
+                    
+                    if let type = json["type"] as? String,
+                       type == "notification",
+                       let notificationData = json["notification"] as? [String: Any],
+                       let notificationJsonData = try? JSONSerialization.data(withJSONObject: notificationData),
+                       let notification = try? decoder.decode(AppNotification.self, from: notificationJsonData) {
+                        #if DEBUG
+                        print("✅ [NotificationWebSocket] 알림 디코딩 성공")
+                        print("📋 Notification ID: \(notification.id)")
+                        print("📋 Notification Type: \(notification.type)")
+                        print(String(repeating: "-", count: 80) + "\n")
+                        #endif
+                        
+                        Task { @MainActor in
+                            self.receivedNotification.send(notification)
+                        }
+                    } else {
+                        #if DEBUG
+                        print("⚠️ [NotificationWebSocket] 알림 형식이 아님 또는 디코딩 실패")
+                        print(String(repeating: "-", count: 80) + "\n")
+                        #endif
                     }
                 }
             } catch {
-                print("Failed to decode notification: \(error)")
+                #if DEBUG
+                print("❌ [NotificationWebSocket] 알림 디코딩 실패: \(error)")
+                print("   원본 메시지: \(text)")
+                print(String(repeating: "-", count: 80) + "\n")
+                #endif
             }
             
         case .data:

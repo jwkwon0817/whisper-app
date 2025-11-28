@@ -115,8 +115,9 @@ struct RegisterScreen: View {
                 .foregroundColor(.gray)
             
             TextField("인증번호 6자리", text: $verificationCode)
-                .textFieldStyle(.roundedBorder)
                 .platformKeyboardType(.numberPad)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
             
             Button {
                 Task {
@@ -139,7 +140,6 @@ struct RegisterScreen: View {
                 .font(.subheadline)
                 .foregroundColor(.gray)
             
-            // 프로필 이미지 선택
             VStack(spacing: 12) {
                 if let imageData = selectedImageData,
                    let platformImage = PlatformImage(data: imageData) {
@@ -168,13 +168,16 @@ struct RegisterScreen: View {
             .padding(.vertical, 8)
             
             TextField("이름", text: $name)
-                .textFieldStyle(.roundedBorder)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
             
             SecureField("비밀번호", text: $password)
-                .textFieldStyle(.roundedBorder)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
             
             SecureField("비밀번호 확인", text: $passwordConfirm)
-                .textFieldStyle(.roundedBorder)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
             
             if !password.isEmpty && !passwordConfirm.isEmpty && password != passwordConfirm {
                 Text("비밀번호가 일치하지 않습니다")
@@ -315,6 +318,18 @@ struct RegisterScreen: View {
             
             // 9. 기기 지문 저장
             DeviceManager.shared.saveDeviceFingerprint(deviceFingerprint)
+            
+            // 10. 비밀번호를 Keychain에 저장 (복호화용)
+            KeychainHelper.setItem(token: password, forAccount: "user_password")
+            
+            // 11. 사용자 정보 가져오기 및 CurrentUser 업데이트
+            do {
+                let user = try await NetworkManager.shared.userService.fetchMe()
+                CurrentUser.shared.update(user: user)
+            } catch {
+                print("⚠️ 사용자 정보 가져오기 실패: \(error)")
+                // 회원가입은 성공했으므로 계속 진행
+            }
             
             dismiss()
             onRegisterSuccess?()

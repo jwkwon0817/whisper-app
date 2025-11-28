@@ -13,7 +13,8 @@ struct SearchScreen: View {
     var body: some View {
         VStack {
             TextField("검색", text: $searchText)
-                .textFieldStyle(.roundedBorder)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
                 .padding()
             
             if searchText.isEmpty {

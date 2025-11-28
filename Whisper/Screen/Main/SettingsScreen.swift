@@ -82,7 +82,8 @@ struct DeleteAccountView: View {
                             .foregroundColor(.gray)
                         
                         TextField("회원탈퇴", text: $confirmText)
-                            .textFieldStyle(.roundedBorder)
+                            .padding(.vertical, 16)
+                            .padding(.horizontal, 20)
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -91,7 +92,8 @@ struct DeleteAccountView: View {
                             .foregroundColor(.gray)
                         
                         SecureField("비밀번호", text: $password)
-                            .textFieldStyle(.roundedBorder)
+                            .padding(.vertical, 16)
+                            .padding(.horizontal, 20)
                     }
                 }
                 .padding(.horizontal)

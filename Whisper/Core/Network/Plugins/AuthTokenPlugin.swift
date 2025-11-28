@@ -26,6 +26,20 @@ struct AuthTokenPlugin: PluginType {
         // 나머지 요청에는 토큰 추가
         if let token = KeychainHelper.getItem(forAccount: "accessToken") {
             request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            
+            #if DEBUG
+            if let url = request.url {
+                print("🔑 [AuthTokenPlugin] 토큰 추가 - URL: \(url.path)")
+                print("   토큰 길이: \(token.count)")
+                print("   토큰 앞부분: \(token.prefix(20))...")
+            }
+            #endif
+        } else {
+            #if DEBUG
+            if let url = request.url {
+                print("⚠️ [AuthTokenPlugin] 토큰 없음 - URL: \(url.path)")
+            }
+            #endif
         }
         
         return request

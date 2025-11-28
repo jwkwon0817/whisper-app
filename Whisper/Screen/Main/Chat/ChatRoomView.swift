@@ -11,11 +11,15 @@ import SwiftUI
 struct ChatRoomView: View {
     let roomId: String
     @StateObject private var viewModel: ChatRoomViewModel
+    @Environment(Router.self) private var router
     @State private var messageText = ""
     @State private var replyToMessage: Message?
     @State private var showImagePicker = false
     @State private var selectedImage: UIImage?
-    @FocusState private var isInputFocused: Bool
+    @State private var showImagePreview = false
+    @State private var editingMessage: Message?
+    @State private var showDeleteAlert = false
+    @State private var messageToDelete: Message?
     
     init(roomId: String) {
         self.roomId = roomId
@@ -24,258 +28,128 @@ struct ChatRoomView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            messageListView
-            typingIndicatorView
-            inputView
+            if viewModel.isLoading && viewModel.messages.isEmpty {
+                // 메시지가 전혀 없고 로딩 중일 때만 스켈레톤 표시
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(0..<5) { _ in
+                            MessageSkeletonView()
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            } else {
+                MessageListView(
+                    messages: viewModel.messages,
+                    isLoadingMore: viewModel.isLoadingMore,
+                    getDisplayContent: { viewModel.getDisplayContent(for: $0) },
+                    onLoadMore: {
+                        await viewModel.loadMoreMessages()
+                    },
+                    onEdit: { message in
+                        editingMessage = message
+                        messageText = viewModel.getDisplayContent(for: message)
+                    },
+                    onDelete: { message in
+                        messageToDelete = message
+                        showDeleteAlert = true
+                    },
+                    onMessageAppear: { message in
+                        viewModel.onMessageAppear(message)
+                    }
+                )
+            }
+            
+            TypingIndicatorView(typingUsers: viewModel.typingUsers)
+            
+            ChatInputView(
+                messageText: $messageText,
+                replyToMessage: $replyToMessage,
+                editingMessage: $editingMessage,
+                onSend: handleSend,
+                onTyping: { viewModel.sendTypingIndicator(isTyping: $0) },
+                onImageSelect: { showImagePicker = true },
+                isSending: viewModel.isSending
+            )
         }
         .navigationTitle(viewModel.room?.displayName ?? "채팅")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            // 현재 활성화된 채팅방 ID 등록
+            router.currentActiveChatRoomId = roomId
             await viewModel.loadRoom()
+        }
+        .onDisappear {
+            // 채팅방을 나가면 활성화된 채팅방 ID 제거
+            if router.currentActiveChatRoomId == roomId {
+                router.currentActiveChatRoomId = nil
+            }
+            viewModel.disconnect()
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker(selectedImage: $selectedImage)
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if newImage != nil {
+                showImagePreview = true
+            }
+        }
+        .sheet(isPresented: $showImagePreview, onDismiss: {
+            selectedImage = nil
+        }) {
+            if let image = selectedImage {
+                ImagePreviewView(image: image) {
+                    showImagePreview = false
+                    handleImageSelection(image)
+                }
+            }
         }
         .alert("오류", isPresented: $viewModel.showError) {
             Button("확인", role: .cancel) { }
         } message: {
             Text(viewModel.errorMessage ?? "알 수 없는 오류가 발생했습니다.")
         }
-    }
-    
-    private var messageListView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    if viewModel.isLoadingMore {
-                        ProgressView()
-                            .padding()
-                    }
-                    
-                    ForEach(viewModel.messages) { message in
-                        MessageBubbleView(
-                            message: message,
-                            displayContent: viewModel.getDisplayContent(for: message)
-                        )
-                        .id(message.id)
-                        .onAppear {
-                            if message.id == viewModel.messages.first?.id {
-                                Task {
-                                    await viewModel.loadMoreMessages()
-                                }
-                            }
-                        }
-                    }
+        .alert("메시지 삭제", isPresented: $showDeleteAlert) {
+            Button("취소", role: .cancel) {
+                messageToDelete = nil
+            }
+            Button("삭제", role: .destructive) {
+                if let message = messageToDelete {
+                    viewModel.deleteMessage(message)
                 }
-                .padding()
+                messageToDelete = nil
             }
-            .onChange(of: viewModel.messages.count) { _ in
-                if let lastMessage = viewModel.messages.last {
-                    withAnimation {
-                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                    }
-                }
-            }
+        } message: {
+            Text("정말로 이 메시지를 삭제하시겠습니까?")
         }
     }
     
-    private var typingIndicatorView: some View {
-        Group {
-            if !viewModel.typingUsers.isEmpty {
-                HStack {
-                    Text(typingUsersText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal)
-                    Spacer()
-                }
-                .padding(.vertical, 4)
-            }
-        }
-    }
-    
-    private var typingUsersText: String {
-        viewModel.typingUsers.map { $0.name }.joined(separator: ", ") + "님이 입력 중..."
-    }
-    
-    private var inputView: some View {
-        ChatInputView(
-            messageText: $messageText,
-            replyToMessage: $replyToMessage,
-            onSend: handleSend,
-            onTyping: { isTyping in
-                viewModel.sendTypingIndicator(isTyping: isTyping)
-            },
-            onImageSelect: {
-                showImagePicker = true
-            }
-        )
-        .sheet(isPresented: $showImagePicker) {
-            ImagePicker(selectedImage: $selectedImage)
-        }
-        .onChange(of: selectedImage) { _, newImage in
-            handleImageSelection(newImage)
-        }
-    }
+    // MARK: - Actions
     
     private func handleSend() {
-        Task {
-            await viewModel.sendMessage(
-                content: messageText,
-                replyTo: replyToMessage?.id
-            )
+        if let editingMessage = editingMessage {
+            // 메시지 수정
+            viewModel.editMessage(editingMessage, newContent: messageText)
+            self.editingMessage = nil
             messageText = ""
-            replyToMessage = nil
+        } else {
+            // 메시지 전송
+            Task {
+                await viewModel.sendMessage(
+                    content: messageText,
+                    replyTo: replyToMessage?.id
+                )
+                messageText = ""
+                replyToMessage = nil
+            }
         }
     }
     
-    private func handleImageSelection(_ image: UIImage?) {
-        guard let image = image else { return }
+    private func handleImageSelection(_ image: UIImage) {
         Task {
             await viewModel.sendImage(image)
             selectedImage = nil
         }
-    }
-}
-
-// MARK: - Message Bubble View
-struct MessageBubbleView: View {
-    let message: Message
-    let displayContent: String
-    
-    var body: some View {
-        HStack {
-            if message.isFromCurrentUser {
-                Spacer()
-            }
-            
-            VStack(alignment: message.isFromCurrentUser ? .trailing : .leading, spacing: 4) {
-                // 답장 대상 표시
-                if let replyTo = message.replyTo {
-                    ReplyToView(replyTo: replyTo)
-                        .padding(.bottom, 4)
-                }
-                
-                // 메시지 내용
-                Text(displayContent)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(message.isFromCurrentUser ? Color.blue : Color.gray.opacity(0.2))
-                    .foregroundColor(message.isFromCurrentUser ? .white : .primary)
-                    .cornerRadius(16)
-                
-                // 시간 및 읽음 상태
-                HStack(spacing: 4) {
-                    if let date = message.createdAtDate {
-                        Text(date, style: .time)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if message.isFromCurrentUser {
-                        Image(systemName: message.isRead ? "checkmark" : "checkmark")
-                            .font(.caption2)
-                            .foregroundColor(message.isRead ? .blue : .secondary)
-                    }
-                }
-            }
-            
-            if !message.isFromCurrentUser {
-                Spacer()
-            }
-        }
-    }
-}
-
-// MARK: - Reply To View
-struct ReplyToView: View {
-    let replyTo: ReplyToMessage
-    
-    var body: some View {
-        HStack {
-            Rectangle()
-                .fill(Color.blue)
-                .frame(width: 3)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(replyTo.sender.name)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                Text(replyTo.content)
-                    .font(.caption)
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(8)
-    }
-}
-
-// MARK: - Chat Input View
-struct ChatInputView: View {
-    @Binding var messageText: String
-    @Binding var replyToMessage: Message?
-    let onSend: () -> Void
-    let onTyping: (Bool) -> Void
-    let onImageSelect: () -> Void
-    
-    @FocusState private var isFocused: Bool
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // 답장 표시
-            if let replyTo = replyToMessage {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("\(replyTo.sender.name)에게 답장")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                        Text(replyTo.displayContent)
-                            .font(.caption2)
-                            .lineLimit(1)
-                    }
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        replyToMessage = nil
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(Color.gray.opacity(0.1))
-            }
-            
-            // 입력 필드
-            HStack(spacing: 12) {
-                Button(action: onImageSelect) {
-                    Image(systemName: "photo")
-                        .font(.system(size: 20))
-                        .foregroundColor(.blue)
-                }
-                
-                TextField("메시지 입력", text: $messageText, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...5)
-                    .focused($isFocused)
-                    .onChange(of: messageText) { _ in
-                        onTyping(true)
-                    }
-                
-                Button(action: onSend) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(messageText.isEmpty ? .gray : .blue)
-                }
-                .disabled(messageText.isEmpty)
-            }
-            .padding()
-        }
-        .background(Color(.systemBackground))
     }
 }
 

@@ -15,8 +15,12 @@ struct CreateScreen: View {
         Form {
             Section("게시물 작성") {
                 TextField("제목", text: $title)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 20)
                 
                 TextField("내용", text: $content, axis: .vertical)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 20)
                     .lineLimit(5...10)
             }
             

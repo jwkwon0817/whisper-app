@@ -44,12 +44,14 @@ struct MessageListResponse: Codable {
     let page: Int
     let pageSize: Int
     let total: Int
+    let hasNext: Bool
     
     enum CodingKeys: String, CodingKey {
         case results
         case page
         case pageSize = "page_size"
         case total
+        case hasNext = "has_next"
     }
 }
 

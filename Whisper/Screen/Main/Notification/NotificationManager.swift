@@ -20,6 +20,8 @@ class NotificationManager: ObservableObject {
     
     // 친구 요청 알림을 위한 PassthroughSubject
     let friendRequestReceived = PassthroughSubject<AppNotification, Never>()
+    // 새로운 메시지 알림을 위한 PassthroughSubject
+    let newMessageReceived = PassthroughSubject<AppNotification, Never>()
     
     private let wsManager = NotificationWebSocketManager.shared
     private var cancellables = Set<AnyCancellable>()
@@ -51,17 +53,54 @@ class NotificationManager: ObservableObject {
     
     private func handleNotification(_ notification: AppNotification) {
         notifications.insert(notification, at: 0)
-        unreadCount += 1
         
-        // 친구 요청 알림인 경우
-        if notification.type == .friendRequest {
+        switch notification.type {
+        case .friendRequest:
+            unreadCount += 1
             friendRequestCount += 1
             friendRequestReceived.send(notification)
             
-            // 로컬 알림 표시
             showLocalNotification(
                 title: "새로운 친구 요청",
                 body: "\(notification.data.userName ?? "누군가")님이 친구 요청을 보냈습니다.",
+                identifier: notification.id
+            )
+            
+        case .newMessage:
+            newMessageReceived.send(notification)
+            
+            if let senderName = notification.data.sender?.name {
+                // content가 있으면 사용, 없으면 메시지 타입에 따라 표시
+                let messageType = notification.data.messageType ?? "text"
+                let content: String
+                
+                if let providedContent = notification.data.content {
+                    content = providedContent
+                } else {
+                    // 백엔드에서 content를 제공하지 않은 경우 (레거시 처리)
+                    switch messageType {
+                    case "image":
+                        content = "📷 사진"
+                    case "file":
+                        content = "📎 파일"
+                    default:
+                        content = "새로운 메시지"
+                    }
+                }
+                
+                showLocalNotification(
+                    title: senderName,
+                    body: content,
+                    identifier: notification.id
+                )
+            }
+            
+        case .groupChatInvitation:
+            unreadCount += 1
+            // 그룹 초대 처리 로직 필요 시 추가
+            showLocalNotification(
+                title: "그룹 초대",
+                body: "새로운 그룹 채팅 초대가 도착했습니다.",
                 identifier: notification.id
             )
         }
