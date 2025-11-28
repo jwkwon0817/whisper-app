@@ -43,6 +43,7 @@ class ChatRoomViewModel: ObservableObject {
     private var publicKeyCache: [String: String] = [:] // userId -> publicKey 캐시
     private var decryptingMessageIds: Set<String> = [] // 현재 복호화 시도 중인 메시지 ID
     private var messageSendStatus: [String: MessageSendStatus] = [:] // messageId -> 전송 상태
+    private var deletingMessageIds: Set<String> = [] // 버그 수정: 삭제 중인 메시지 ID 추적
     
     enum MessageSendStatus {
         case sending
@@ -220,6 +221,9 @@ class ChatRoomViewModel: ObservableObject {
                 // 위에 메시지 추가 (무한 스크롤)
                 messages.insert(contentsOf: response.results, at: 0)
             }
+            
+            // 버그 수정: 메시지 로드 후 정렬하여 순서 보장
+            sortMessages()
             
             currentPage = page
             hasMoreMessages = response.hasNext
@@ -583,18 +587,22 @@ class ChatRoomViewModel: ObservableObject {
     
     private var unreadMessageIds: Set<String> = [] // 아직 읽지 않은 메시지 ID 추적
     private var readReceiptTask: Task<Void, Never>? // 읽음 처리 디바운싱용
+    private var pendingReadIds: Set<String> = [] // 버그 수정: 아직 API 응답을 기다리는 메시지 ID
     
     func onMessageAppear(_ message: Message) {
         // 내가 보낸 메시지거나 이미 읽은 메시지는 스킵
         guard !message.isFromCurrentUser && !message.isRead else { return }
         
+        // 버그 수정: 이미 처리 중인 메시지는 스킵
+        guard !pendingReadIds.contains(message.id) else { return }
+        
         // 아직 읽지 않은 메시지로 추가
         unreadMessageIds.insert(message.id)
         
-        // 디바운싱: 0.5초 후에 일괄 처리
+        // 버그 수정: 디바운싱 시간 단축 (0.3초)
         readReceiptTask?.cancel()
         readReceiptTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3초로 단축
             
             guard !Task.isCancelled, !unreadMessageIds.isEmpty else { return }
             
@@ -604,20 +612,47 @@ class ChatRoomViewModel: ObservableObject {
             await markMessagesAsRead(messageIds: idsToMark)
         }
     }
+    
+    // 버그 수정: 채팅방을 나갈 때 남은 읽음 처리 즉시 수행
+    private func flushPendingReadReceipts() async {
+        readReceiptTask?.cancel()
+        readReceiptTask = nil
+        
+        if !unreadMessageIds.isEmpty {
+            let idsToMark = Array(unreadMessageIds)
+            unreadMessageIds.removeAll()
+            await markMessagesAsRead(messageIds: idsToMark)
+        }
+    }
 
     func markMessagesAsRead(messageIds: [String]) async {
+        // 버그 수정: 이미 처리 중인 ID 제외
+        let newIds = messageIds.filter { !pendingReadIds.contains($0) }
+        guard !newIds.isEmpty else { return }
+        
+        // 처리 중 목록에 추가
+        pendingReadIds.formUnion(newIds)
+        
+        // 원본 상태 백업 (롤백용)
+        var originalReadStatus: [String: Bool] = [:]
+        for id in newIds {
+            if let index = messages.firstIndex(where: { $0.id == id }) {
+                originalReadStatus[id] = messages[index].isRead
+            }
+        }
+        
         // 낙관적 업데이트: 즉시 UI 업데이트
-        var updatedMessages: [Message] = []
+        var updatedCount = 0
         for i in 0..<messages.count {
-            if messageIds.contains(messages[i].id) && !messages[i].isRead {
+            if newIds.contains(messages[i].id) && !messages[i].isRead {
                 messages[i] = messages[i].withReadStatus(true)
-                updatedMessages.append(messages[i])
+                updatedCount += 1
             }
         }
         
         #if DEBUG
-        if !updatedMessages.isEmpty {
-            print("✅ [ChatRoomViewModel] 즉시 읽음 처리 (낙관적 업데이트) - 개수: \(updatedMessages.count)")
+        if updatedCount > 0 {
+            print("✅ [ChatRoomViewModel] 즉시 읽음 처리 (낙관적 업데이트) - 개수: \(updatedCount)")
         }
         #endif
         
@@ -633,25 +668,34 @@ class ChatRoomViewModel: ObservableObject {
                 replyTo: nil,
                 assetId: nil,
                 isTyping: nil,
-                messageIds: messageIds
+                messageIds: newIds
             )
             wsManager.sendMessage(message)
         }
             
         // API 호출 (WebSocket 연결 여부와 관계없이 항상 호출)
-        // 채팅방을 나간 후에도 읽음 처리가 서버에 반영되도록
-        Task {
-            do {
-                try await apiService.markMessagesAsRead(roomId: roomId, messageIds: messageIds)
-                
-                #if DEBUG
-                print("✅ [ChatRoomViewModel] 읽음 처리 API 호출 성공")
-                #endif
+        do {
+            try await apiService.markMessagesAsRead(roomId: roomId, messageIds: newIds)
+            
+            // 성공 시 처리 중 목록에서 제거
+            pendingReadIds.subtract(newIds)
+            
+            #if DEBUG
+            print("✅ [ChatRoomViewModel] 읽음 처리 API 호출 성공")
+            #endif
         } catch {
-                #if DEBUG
-                print("❌ [ChatRoomViewModel] 읽음 처리 API 호출 실패: \(error)")
-                #endif
+            // 버그 수정: 실패 시 롤백
+            pendingReadIds.subtract(newIds)
+            
+            for (id, wasRead) in originalReadStatus {
+                if let index = messages.firstIndex(where: { $0.id == id }) {
+                    messages[index] = messages[index].withReadStatus(wasRead)
+                }
             }
+            
+            #if DEBUG
+            print("❌ [ChatRoomViewModel] 읽음 처리 API 호출 실패 (롤백됨): \(error)")
+            #endif
         }
     }
     
@@ -692,6 +736,11 @@ class ChatRoomViewModel: ObservableObject {
         print("🔌 [ChatRoomViewModel] disconnect 호출됨")
         #endif
         
+        // 버그 수정: 남은 읽음 처리 즉시 수행
+        Task {
+            await flushPendingReadReceipts()
+        }
+        
         // 구독 취소
         cancellables.removeAll()
         
@@ -713,13 +762,20 @@ class ChatRoomViewModel: ObservableObject {
         #endif
         
         // 웹소켓 연결 상태 모니터링
+        // 버그 수정: 재연결 성공 시 최신 메시지 로드
+        var wasDisconnected = false
+        
         wsManager.$isConnected
             .sink { [weak self] isConnected in
                 Task { @MainActor in
+                    guard let self = self, !self.isDisconnected else { return }
+                    
                     #if DEBUG
                     print("🔌 [ChatRoomViewModel] WebSocket 연결 상태 변경: \(isConnected ? "연결됨" : "연결 끊김")")
                     #endif
-                    if !isConnected, let self = self, !self.isDisconnected {
+                    
+                    if !isConnected {
+                        wasDisconnected = true
                         // 연결이 끊겼을 때 자동 재연결 시도
                         if let accessToken = KeychainHelper.getItem(forAccount: "accessToken") {
                             #if DEBUG
@@ -727,6 +783,16 @@ class ChatRoomViewModel: ObservableObject {
                             #endif
                             self.wsManager.connect(roomId: self.roomId, accessToken: accessToken)
                         }
+                    } else if wasDisconnected {
+                        // 버그 수정: 재연결 성공 시 최신 메시지 로드하여 유실된 메시지 복구
+                        wasDisconnected = false
+                        #if DEBUG
+                        print("🔄 [ChatRoomViewModel] WebSocket 재연결 성공 - 최신 메시지 동기화")
+                        #endif
+                        
+                        // 0.5초 후 최신 메시지 로드 (서버 동기화 대기)
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        await self.loadMessages(page: 1, useCache: false)
                     }
                 }
             }
@@ -852,9 +918,12 @@ class ChatRoomViewModel: ObservableObject {
                         self.messages[index] = updatedMessage
                         
                         // 1:1 채팅이고 암호화된 메시지인 경우, 복호화된 내용도 업데이트
-                        if self.room?.roomType == .direct, let encryptedContent = updatedMessage.encryptedContent {
+                        // 버그 수정: room이 nil인 경우에도 암호화된 메시지면 복호화 시도
+                        let shouldDecrypt = (self.room?.roomType == .direct) || (updatedMessage.encryptedContent != nil)
+                        if shouldDecrypt, let encryptedContent = updatedMessage.encryptedContent {
                             // 기존 캐시 삭제
                             self.decryptedMessages.removeValue(forKey: updatedMessage.id)
+                            self.decryptingMessageIds.remove(updatedMessage.id) // 복호화 중 플래그도 리셋
                             await self.decryptedCache.remove(roomId: self.roomId, messageId: updatedMessage.id)
                             
                             // 올바른 키로 재복호화
@@ -889,6 +958,9 @@ class ChatRoomViewModel: ObservableObject {
                             }
                         }
                         
+                        // 버그 수정: UI 강제 업데이트
+                        self.objectWillChange.send()
+                        
                         #if DEBUG
                         print("✅ [ChatRoomViewModel] 메시지 수정 완료")
                         #endif
@@ -907,14 +979,22 @@ class ChatRoomViewModel: ObservableObject {
                     print("🗑️ [ChatRoomViewModel] 메시지 삭제 이벤트 수신 - Message ID: \(messageId)")
                     #endif
                     
+                    // 버그 수정: 이미 삭제 중인 메시지면 중복 처리 방지
+                    if self.deletingMessageIds.contains(messageId) {
+                        #if DEBUG
+                        print("⚠️ [ChatRoomViewModel] 이미 삭제 처리 중인 메시지, WebSocket 이벤트 무시: \(messageId)")
+                        #endif
+                        return
+                    }
+                    
                     // 메시지 목록에서 해당 메시지 삭제
-                    self.messages.removeAll { $0.id == messageId }
+                    withAnimation {
+                        self.messages.removeAll { $0.id == messageId }
+                    }
                     
                     // 캐시에서도 삭제
                     self.decryptedMessages.removeValue(forKey: messageId)
-                    Task {
-                        await self.decryptedCache.remove(roomId: self.roomId, messageId: messageId)
-                    }
+                    await self.decryptedCache.remove(roomId: self.roomId, messageId: messageId)
                     
                     #if DEBUG
                     print("✅ [ChatRoomViewModel] 메시지 삭제 완료")
@@ -958,32 +1038,79 @@ class ChatRoomViewModel: ObservableObject {
         }
         
         // 임시 메시지 찾기 (내가 보낸 메시지인 경우)
+        // 버그 수정: 더 안정적인 매칭 로직
         if message.isFromCurrentUser {
             var tempMessageIndex: Int? = nil
             var tempMessageId: String? = nil
+            var matchMethod: String = ""
+            
+            // 임시 메시지 후보들 찾기
+            let tempMessages = messages.enumerated().filter { $0.element.id.hasPrefix("temp_") }
+            
+            #if DEBUG
+            print("🔍 [ChatRoomViewModel] 임시 메시지 매칭 시도")
+            print("   임시 메시지 개수: \(tempMessages.count)")
+            print("   새 메시지 타입: \(message.messageType.rawValue)")
+            #endif
             
             // 1. encryptedContent로 매칭 (텍스트 메시지)
-            if let encryptedContent = message.encryptedContent {
-                tempMessageIndex = messages.firstIndex(where: { 
-                    $0.id.hasPrefix("temp_") && $0.encryptedContent == encryptedContent 
-                })
-                if let index = tempMessageIndex {
-                    tempMessageId = messages[index].id
+            if tempMessageIndex == nil, let encryptedContent = message.encryptedContent {
+                if let match = tempMessages.first(where: { $0.element.encryptedContent == encryptedContent }) {
+                    tempMessageIndex = match.offset
+                    tempMessageId = match.element.id
+                    matchMethod = "encryptedContent"
                 }
             }
+            
             // 2. asset.id로 매칭 (이미지/파일 메시지)
-            else if let asset = message.asset {
-                tempMessageIndex = messages.firstIndex(where: { 
-                    $0.id.hasPrefix("temp_") && $0.asset?.id == asset.id
-                })
-                if let index = tempMessageIndex {
-                    tempMessageId = messages[index].id
+            if tempMessageIndex == nil, let asset = message.asset {
+                if let match = tempMessages.first(where: { $0.element.asset?.id == asset.id }) {
+                    tempMessageIndex = match.offset
+                    tempMessageId = match.element.id
+                    matchMethod = "assetId"
+                }
+            }
+            
+            // 3. 버그 수정: content로 매칭 (그룹 채팅 텍스트 메시지)
+            if tempMessageIndex == nil, let content = message.content, !content.isEmpty {
+                if let match = tempMessages.first(where: { $0.element.content == content }) {
+                    tempMessageIndex = match.offset
+                    tempMessageId = match.element.id
+                    matchMethod = "content"
+                }
+            }
+            
+            // 4. 버그 수정: 시간 기반 매칭 (최근 3초 이내 같은 타입의 임시 메시지)
+            if tempMessageIndex == nil {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let now = Date()
+                
+                if let match = tempMessages.first(where: { item in
+                    let tempMsg = item.element
+                    // 같은 메시지 타입인지 확인
+                    guard tempMsg.messageType == message.messageType else { return false }
+                    
+                    // 3초 이내에 생성된 임시 메시지인지 확인
+                    if let tempDate = formatter.date(from: tempMsg.createdAt) {
+                        let timeDiff = now.timeIntervalSince(tempDate)
+                        return timeDiff < 3.0 && timeDiff >= 0
+                    }
+                    return false
+                }) {
+                    tempMessageIndex = match.offset
+                    tempMessageId = match.element.id
+                    matchMethod = "timeAndType"
                 }
             }
             
             // 임시 메시지를 실제 메시지로 교체
             if let index = tempMessageIndex, let tempId = tempMessageId {
                 let tempMessageId = tempId
+                
+                #if DEBUG
+                print("✅ [ChatRoomViewModel] 임시 메시지 매칭 성공 - 방법: \(matchMethod)")
+                #endif
                 
                 // 복호화된 내용이 있으면 새 메시지 ID로 이동 (텍스트 메시지만)
                 if let decryptedContent = decryptedMessages[tempMessageId] {
@@ -992,7 +1119,7 @@ class ChatRoomViewModel: ObservableObject {
                     
                     // 임시 메시지 캐시 삭제
                     Task {
-                        await decryptedCache.save(roomId: roomId, messageId: tempMessageId, decryptedContent: "")
+                        await decryptedCache.remove(roomId: roomId, messageId: tempMessageId)
                     }
                 }
                 
@@ -1007,6 +1134,13 @@ class ChatRoomViewModel: ObservableObject {
                 if let asset = message.asset {
                     print("   Asset URL: \(asset.url)")
                 }
+                #endif
+            } else {
+                #if DEBUG
+                print("⚠️ [ChatRoomViewModel] 임시 메시지 매칭 실패 - 새 메시지로 추가됨")
+                print("   encryptedContent: \(message.encryptedContent?.prefix(30) ?? "nil")")
+                print("   content: \(message.content?.prefix(30) ?? "nil")")
+                print("   assetId: \(message.asset?.id ?? "nil")")
                 #endif
             }
         }
@@ -1053,6 +1187,10 @@ class ChatRoomViewModel: ObservableObject {
         
         // 메시지 추가
         messages.append(message)
+        
+        // 버그 수정: 메시지 추가 후 정렬하여 순서 보장
+        sortMessages()
+        
         #if DEBUG
         print("✅ [ChatRoomViewModel] 메시지 추가 완료 - 총 개수: \(messages.count)")
         #endif
@@ -1070,12 +1208,30 @@ class ChatRoomViewModel: ObservableObject {
     func deleteMessage(_ message: Message) {
         let messageId = message.id
         
+        // 버그 수정: 이미 삭제 중인 메시지면 중복 삭제 방지
+        guard !deletingMessageIds.contains(messageId) else {
+            #if DEBUG
+            print("⚠️ [ChatRoomViewModel] 이미 삭제 중인 메시지: \(messageId)")
+            #endif
+            return
+        }
+        
+        // 삭제 중 플래그 설정
+        deletingMessageIds.insert(messageId)
+        
         // 낙관적 업데이트: 리스트에서 제거
-        // 원래 목록 백업 (롤백용)
-        let originalMessages = messages
+        // 원래 메시지 백업 (롤백용)
+        let originalMessage = messages.first { $0.id == messageId }
+        let originalIndex = messages.firstIndex { $0.id == messageId }
         
         withAnimation {
             messages.removeAll { $0.id == messageId }
+        }
+        
+        // 캐시에서도 삭제
+        decryptedMessages.removeValue(forKey: messageId)
+        Task {
+            await decryptedCache.remove(roomId: roomId, messageId: messageId)
         }
         
         Task {
@@ -1085,6 +1241,9 @@ class ChatRoomViewModel: ObservableObject {
                 // 메시지 캐시 무효화
                 await apiService.invalidateMessageCache(for: roomId)
                 
+                // 버그 수정: 삭제 완료 후 플래그 제거
+                deletingMessageIds.remove(messageId)
+                
                 #if DEBUG
                 print("✅ [ChatRoomViewModel] 메시지 삭제 성공: \(messageId)")
                 #endif
@@ -1092,10 +1251,22 @@ class ChatRoomViewModel: ObservableObject {
                 #if DEBUG
                 print("❌ [ChatRoomViewModel] 메시지 삭제 실패: \(error)")
                 #endif
-                // 실패 시 롤백
+                
+                // 버그 수정: 실패 시 플래그 제거
+                deletingMessageIds.remove(messageId)
+                
+                // 실패 시 롤백 (원래 위치에 복원)
                 await MainActor.run {
-                    withAnimation {
-                        messages = originalMessages
+                    if let originalMessage = originalMessage {
+                        withAnimation {
+                            if let index = originalIndex, index < messages.count {
+                                messages.insert(originalMessage, at: index)
+                            } else {
+                                messages.append(originalMessage)
+                            }
+                            // 메시지 정렬 (시간 순)
+                            sortMessages()
+                        }
                     }
                     errorMessage = "메시지 삭제에 실패했습니다."
                     showError = true
@@ -1322,9 +1493,19 @@ class ChatRoomViewModel: ObservableObject {
             return
         }
         
-        guard room?.roomType == .direct else {
+        // 버그 수정: room이 아직 로드되지 않았어도 암호화된 메시지가 있으면 복호화 시도
+        // room이 nil이면 암호화된 메시지 존재 여부로 1:1 채팅 판단
+        let shouldDecrypt: Bool
+        if let room = room {
+            shouldDecrypt = room.roomType == .direct
+        } else {
+            // room이 nil이면 암호화된 메시지가 있는지 확인
+            shouldDecrypt = messages.contains { $0.encryptedContent != nil }
+        }
+        
+        guard shouldDecrypt else {
             #if DEBUG
-            print("⚠️ [ChatRoomViewModel] 1:1 채팅방이 아니어서 복호화 스킵")
+            print("⚠️ [ChatRoomViewModel] 복호화할 메시지가 없어서 스킵")
             #endif
             return
         }
@@ -1405,6 +1586,9 @@ class ChatRoomViewModel: ObservableObject {
         
         isDecrypting = false
         
+        // 버그 수정: 복호화 완료 후 UI 강제 업데이트
+        objectWillChange.send()
+        
         #if DEBUG
         print("✅ [ChatRoomViewModel] decryptMessages 완료")
         #endif
@@ -1479,6 +1663,8 @@ class ChatRoomViewModel: ObservableObject {
         
         if let decryptedContent = result {
             saveDecryptedMessage(messageId: messageId, content: decryptedContent)
+            // 버그 수정: 복호화 완료 후 UI 강제 업데이트
+            objectWillChange.send()
             #if DEBUG
             print("✅ [ChatRoomViewModel] 메시지 복호화 완료 및 저장: \(messageId)")
             #endif
@@ -1829,6 +2015,21 @@ class ChatRoomViewModel: ObservableObject {
             
             errorMessage = "파일 전송에 실패했습니다: \(error.localizedDescription)"
             showError = true
+        }
+    }
+    
+    // MARK: - 메시지 정렬 (버그 8 수정)
+    
+    private func sortMessages() {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        messages.sort { m1, m2 in
+            guard let date1 = formatter.date(from: m1.createdAt),
+                  let date2 = formatter.date(from: m2.createdAt) else {
+                return m1.createdAt < m2.createdAt
+            }
+            return date1 < date2
         }
     }
     

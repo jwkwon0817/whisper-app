@@ -26,14 +26,30 @@ actor DecryptedMessageCache {
     
     /// 복호화된 메시지 저장
     func save(roomId: String, messageId: String, decryptedContent: String) async {
+        // 버그 수정: 빈 문자열은 저장하지 않음
+        guard !decryptedContent.isEmpty else {
+            #if DEBUG
+            print("⚠️ [DecryptedMessageCache] 빈 문자열 저장 시도 무시: \(messageId)")
+            #endif
+            return
+        }
+        
         // 메모리 캐시에 저장
         if memoryCache[roomId] == nil {
             memoryCache[roomId] = [:]
         }
         memoryCache[roomId]?[messageId] = decryptedContent
         
-        // 디스크에 저장
-        await saveToDisk(roomId: roomId, messageId: messageId, decryptedContent: decryptedContent)
+        // 디스크에 저장 (동기적으로 완료 확인)
+        let success = await saveToDisk(roomId: roomId, messageId: messageId, decryptedContent: decryptedContent)
+        
+        // 버그 수정: 디스크 저장 실패 시 메모리 캐시도 롤백
+        if !success {
+            memoryCache[roomId]?.removeValue(forKey: messageId)
+            #if DEBUG
+            print("⚠️ [DecryptedMessageCache] 디스크 저장 실패로 메모리 캐시도 롤백: \(messageId)")
+            #endif
+        }
     }
     
     /// 복호화된 메시지 조회
@@ -99,18 +115,28 @@ actor DecryptedMessageCache {
     
     // MARK: - Private Methods
     
-    private func saveToDisk(roomId: String, messageId: String, decryptedContent: String) async {
+    private func saveToDisk(roomId: String, messageId: String, decryptedContent: String) async -> Bool {
         let roomDirectory = cacheDirectory.appendingPathComponent(roomId)
-        try? FileManager.default.createDirectory(at: roomDirectory, withIntermediateDirectories: true)
+        
+        do {
+            try FileManager.default.createDirectory(at: roomDirectory, withIntermediateDirectories: true)
+        } catch {
+            #if DEBUG
+            print("❌ [DecryptedMessageCache] 디렉토리 생성 실패: \(error)")
+            #endif
+            return false
+        }
         
         let fileURL = roomDirectory.appendingPathComponent("\(messageId).txt")
         
         do {
             try decryptedContent.write(to: fileURL, atomically: true, encoding: .utf8)
+            return true
         } catch {
             #if DEBUG
             print("❌ [DecryptedMessageCache] 디스크 저장 실패: \(error)")
             #endif
+            return false
         }
     }
     
