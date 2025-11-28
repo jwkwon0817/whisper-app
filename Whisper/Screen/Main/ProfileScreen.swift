@@ -84,7 +84,7 @@ struct ProfileScreen: View {
         } message: {
             Text("정말 로그아웃 하시겠습니까?")
         }
-        .navigationTitle("Profile")
+        .navigationTitle("프로필")
         .refreshable {
             await me.refetch()
         }

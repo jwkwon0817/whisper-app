@@ -50,7 +50,7 @@ class Router {
     
     func pop(count: Int = 1) {
         var currentPath = paths[selectedTab] ?? NavigationPath()
-        for _ in 0..<count {
+        for _ in 0 ..< count {
             if !currentPath.isEmpty {
                 currentPath.removeLast()
             }
@@ -84,16 +84,15 @@ class Router {
         presentedFullScreen = nil
     }
     
-    
     func switchTab(to tab: TabRoute) {
         selectedTab = tab
     }
 }
 
 enum TabRoute: String, CaseIterable, Identifiable {
-    case home = "Home"
-    case chat = "Chat"
-    case profile = "Profile"
+    case home = "홈"
+    case chat = "채팅"
+    case profile = "프로필"
     
     var id: String { rawValue }
     
@@ -107,4 +106,3 @@ enum TabRoute: String, CaseIterable, Identifiable {
         }
     }
 }
-
