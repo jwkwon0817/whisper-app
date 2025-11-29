@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Chat Room List View
 struct ChatRoomListView: View {
     @StateObject private var viewModel = ChatRoomListViewModel()
     @StateObject private var folderViewModel = ChatFolderViewModel()
@@ -15,15 +14,10 @@ struct ChatRoomListView: View {
     @State private var showCreateChat = false
     @State private var showInvitations = false
     @State private var showCreateFolder = false
-    @State private var showFolderMenu = false
-    @State private var folderToManage: ChatFolder?
-    @State private var roomToDelete: ChatRoom?
-    @State private var showDeleteAlert = false
     @State private var roomForFolderSelection: ChatRoom?
     
     var body: some View {
         VStack(spacing: 0) {
-            // 폴더 탭
             FolderTabView(
                     folders: viewModel.folders,
                     selectedFolderId: viewModel.selectedFolderId,
@@ -33,46 +27,11 @@ struct ChatRoomListView: View {
                     onCreateFolder: {
                         showCreateFolder = true
                     },
-                    onFolderDelete: { folder in
-                        Task {
-                            #if DEBUG
-                            print("🗑️ [ChatRoomListView] 폴더 삭제 시작 - ID: \(folder.id), Name: \(folder.name)")
-                            #endif
-                            
-                            // 낙관적 업데이트: 즉시 UI에서 제거
-                            let folderToRestore = folder
-                            viewModel.folders.removeAll { $0.id == folder.id }
-                            
-                            do {
-                                // API 직접 호출
-                                try await NetworkManager.shared.chatService.deleteChatFolder(folderId: folder.id)
-                                
-                                #if DEBUG
-                                print("✅ [ChatRoomListView] 폴더 삭제 API 호출 성공")
-                                #endif
-                                
-                                // 성공 시 폴더 목록 새로고침 (동기화)
-                                await viewModel.loadFolders()
-                            } catch {
-                                #if DEBUG
-                                print("❌ [ChatRoomListView] 폴더 삭제 실패 - 롤백: \(error)")
-                                #endif
-                                // 실패 시 롤백
-                                if !viewModel.folders.contains(where: { $0.id == folderToRestore.id }) {
-                                    viewModel.folders.append(folderToRestore)
-                                    viewModel.folders.sort { $0.order < $1.order }
-                                }
-                                viewModel.errorMessage = error.localizedDescription
-                                viewModel.showError = true
-                            }
-                        }
-                    }
+                    onFolderDelete: { _ in }
                 )
                 
-                // 채팅방 목록
                 List {
                     if viewModel.isLoading && viewModel.filteredRooms.isEmpty {
-                        // 초기 로딩 중일 때 스켈레톤 표시
                         ForEach(0..<5) { _ in
                             ChatRoomRowSkeletonView()
                                 .listRowSeparator(.hidden)
@@ -88,23 +47,6 @@ struct ChatRoomListView: View {
                                 }) {
                                     Label("폴더에 추가", systemImage: "folder.badge.plus")
                                 }
-                                
-                                Button(role: .destructive, action: {
-                                    roomToDelete = room
-                                    showDeleteAlert = true
-                                }) {
-                                    Label("삭제", systemImage: "trash")
-                                }
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(role: .destructive) {
-                                    roomToDelete = room
-                                    showDeleteAlert = true
-                                } label: {
-                                    Label("삭제", systemImage: "trash")
-                                        .foregroundColor(.white)
-                                }
-                                .tint(.red)
                             }
                         }
                     }
@@ -190,46 +132,14 @@ struct ChatRoomListView: View {
                     }
                 )
             }
-            .confirmationDialog("폴더 관리", isPresented: $showFolderMenu, presenting: folderToManage) { folder in
-                Button("이름 변경") {
-                    // TODO: 폴더 이름 변경 구현
-                }
-                Button("삭제", role: .destructive) {
-                    if let folder = folderToManage {
-                        Task {
-                            await folderViewModel.deleteFolder(folderId: folder.id)
-                            await viewModel.loadFolders()
-                        }
-                    }
-                }
-                Button("취소", role: .cancel) { }
-            }
             .alert("오류", isPresented: $viewModel.showError) {
                 Button("확인", role: .cancel) { }
             } message: {
                 Text(viewModel.errorMessage ?? "알 수 없는 오류가 발생했습니다.")
             }
-            .alert("채팅방 삭제", isPresented: $showDeleteAlert) {
-                Button("취소", role: .cancel) {
-                    roomToDelete = nil
-                }
-                Button("예", role: .destructive) {
-                    if let room = roomToDelete {
-                        Task {
-                            await viewModel.deleteRoom(roomId: room.id)
-                        }
-                    }
-                    roomToDelete = nil
-                }
-            } message: {
-                if let room = roomToDelete {
-                    Text("'\(room.displayName)' 채팅방을 삭제하시겠습니까?")
-                }
-            }
     }
 }
 
-// MARK: - Folder Selection Sheet
 struct FolderSelectionSheet: View {
     @Environment(\.dismiss) private var dismiss
     let folders: [ChatFolder]

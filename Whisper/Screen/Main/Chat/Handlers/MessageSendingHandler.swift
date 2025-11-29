@@ -7,18 +7,13 @@
 
 import SwiftUI
 
-/// 메시지 전송을 담당하는 핸들러
 @MainActor
 final class MessageSendingHandler {
-    
-    // MARK: - Dependencies
     
     private let roomId: String
     private let wsManager: ChatWebSocketManager
     private let fileUploadService: FileUploadService
     private let encryptionHandler: MessageEncryptionHandler
-    
-    // MARK: - State
     
     private(set) var isSending = false
     private(set) var messageSendStatus: [String: MessageSendStatus] = [:]
@@ -29,15 +24,11 @@ final class MessageSendingHandler {
         case failed(Error)
     }
     
-    // MARK: - Callbacks
-    
     var onMessageCreated: ((Message) -> Void)?
-    var onMessageSent: ((String, String) -> Void)? // (tempId, realId)
+    var onMessageSent: ((String, String) -> Void)?
     var onError: ((String) -> Void)?
     var getRoomType: (() -> ChatRoom.RoomType?)?
     var getMembers: (() -> [ChatRoomMember])?
-    
-    // MARK: - Init
     
     init(
         roomId: String,
@@ -51,9 +42,6 @@ final class MessageSendingHandler {
         self.encryptionHandler = encryptionHandler
     }
     
-    // MARK: - Public Methods
-    
-    /// 텍스트 메시지 전송
     func sendMessage(content: String, replyTo: String? = nil) async -> Bool {
         guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         guard !isSending else { return false }
@@ -67,7 +55,6 @@ final class MessageSendingHandler {
         let isDirectChat = getRoomType?() == .direct
         
         if isDirectChat {
-            // 현재 사용자 정보 확인
             if CurrentUser.shared.id == nil {
                 do {
                     let user = try await NetworkManager.shared.userService.fetchMe()
@@ -89,7 +76,6 @@ final class MessageSendingHandler {
                 return false
             }
             
-            // 공개키 가져오기
             let publicKeyPEM: String
             do {
                 publicKeyPEM = try await encryptionHandler.fetchUserPublicKey(userId: otherMember.user.id)
@@ -98,15 +84,12 @@ final class MessageSendingHandler {
                 return false
             }
             
-            // 내 공개키 가져오기
             var selfPublicKeyPEM: String? = nil
             do {
                 selfPublicKeyPEM = try await encryptionHandler.fetchUserPublicKey(userId: currentUserId)
             } catch {
-                // 실패해도 계속 진행
             }
             
-            // 암호화
             do {
                 let encryptionResult = try await encryptionHandler.encryptMessage(
                     content,
@@ -127,13 +110,11 @@ final class MessageSendingHandler {
                     messageIds: nil
                 )
                 
-                // 원본 내용 저장
                 encryptionHandler.storeSentMessageContent(
                     encryptedContent: encryptionResult.encryptedContent,
                     originalContent: content
                 )
                 
-                // 임시 메시지 생성
                 let tempMessage = createTempMessage(
                     id: tempMessageId,
                     messageType: Message.MessageType.text,
@@ -155,7 +136,6 @@ final class MessageSendingHandler {
                 return false
             }
         } else {
-            // 그룹 채팅 (평문)
             let tempMessage = createTempMessage(
                 id: tempMessageId,
                 messageType: Message.MessageType.text,
@@ -182,7 +162,6 @@ final class MessageSendingHandler {
             )
         }
         
-        // WebSocket 연결 확인
         guard wsManager.isConnected else {
             onError?("WebSocket 연결이 끊어져 메시지를 전송할 수 없습니다.")
             return false
@@ -197,23 +176,12 @@ final class MessageSendingHandler {
         return true
     }
     
-    /// 이미지 전송
     func sendImage(_ image: UIImage) async -> Bool {
-        #if DEBUG
-        print("📸 [MessageSendingHandler] 이미지 전송 시작")
-        #endif
-        
         let tempMessageId = generateTempMessageId()
         
         do {
-            // 1. 이미지 업로드
             let asset = try await fileUploadService.uploadImage(image, folder: "chat")
             
-            #if DEBUG
-            print("✅ [MessageSendingHandler] 이미지 업로드 성공 - Asset ID: \(asset.id)")
-            #endif
-            
-            // 2. 임시 메시지 생성
             let tempMessage = createTempMessage(
                 id: tempMessageId,
                 messageType: Message.MessageType.image,
@@ -225,7 +193,6 @@ final class MessageSendingHandler {
                 onMessageCreated?(tempMessage)
             }
             
-            // 3. WebSocket으로 전송
             let outgoingMessage = WebSocketOutgoingMessage(
                 type: "chat_message",
                 messageType: "image",
@@ -247,29 +214,16 @@ final class MessageSendingHandler {
             
             wsManager.sendMessage(outgoingMessage)
             
-            #if DEBUG
-            print("✅ [MessageSendingHandler] 이미지 메시지 전송 완료")
-            #endif
-            
             return true
             
         } catch {
-            #if DEBUG
-            print("❌ [MessageSendingHandler] 이미지 전송 실패: \(error)")
-            #endif
-            
             messageSendStatus.removeValue(forKey: tempMessageId)
             onError?("이미지 전송에 실패했습니다: \(error.localizedDescription)")
             return false
         }
     }
     
-    /// 파일 전송
     func sendFile(url: URL) async -> Bool {
-        #if DEBUG
-        print("📎 [MessageSendingHandler] 파일 전송 시작")
-        #endif
-        
         let tempMessageId = generateTempMessageId()
         
         do {
@@ -277,20 +231,12 @@ final class MessageSendingHandler {
             let fileName = url.lastPathComponent
             let contentType = url.mimeType ?? "application/octet-stream"
             
-            #if DEBUG
-            print("📄 [MessageSendingHandler] 파일 정보 - 이름: \(fileName), 크기: \(fileData.count) bytes")
-            #endif
-            
             let asset = try await fileUploadService.uploadFile(
                 data: fileData,
                 fileName: fileName,
                 contentType: contentType,
                 folder: "chat"
             )
-            
-            #if DEBUG
-            print("✅ [MessageSendingHandler] 파일 업로드 성공 - Asset ID: \(asset.id)")
-            #endif
             
             let tempMessage = createTempMessage(
                 id: tempMessageId,
@@ -324,24 +270,15 @@ final class MessageSendingHandler {
             
             wsManager.sendMessage(outgoingMessage)
             
-            #if DEBUG
-            print("✅ [MessageSendingHandler] 파일 메시지 전송 완료")
-            #endif
-            
             return true
             
         } catch {
-            #if DEBUG
-            print("❌ [MessageSendingHandler] 파일 전송 실패: \(error)")
-            #endif
-            
             messageSendStatus.removeValue(forKey: tempMessageId)
             onError?("파일 전송에 실패했습니다: \(error.localizedDescription)")
             return false
         }
     }
     
-    /// 타이핑 인디케이터 전송
     func sendTypingIndicator(isTyping: Bool) {
         let message = WebSocketOutgoingMessage(
             type: "typing",
@@ -358,23 +295,18 @@ final class MessageSendingHandler {
         wsManager.sendMessage(message)
     }
     
-    /// 메시지 전송 상태 업데이트
     func updateSendStatus(tempId: String, realId: String, status: MessageSendStatus) {
         messageSendStatus[realId] = status
         messageSendStatus.removeValue(forKey: tempId)
     }
     
-    /// 임시 메시지 ID로 상태 가져오기
     func getSendStatus(for messageId: String) -> MessageSendStatus? {
         return messageSendStatus[messageId]
     }
     
-    /// 메시지 전송 상태 제거
     func removeSendStatus(for messageId: String) {
         messageSendStatus.removeValue(forKey: messageId)
     }
-    
-    // MARK: - Private Methods
     
     private func generateTempMessageId() -> String {
         return "temp_\(Date().timeIntervalSince1970)_\(UUID().uuidString.prefix(8))"
@@ -413,7 +345,10 @@ final class MessageSendingHandler {
                 id: replyToId,
                 sender: currentUser,
                 content: "",
-                messageType: Message.MessageType.text
+                messageType: Message.MessageType.text,
+                encryptedContent: nil,
+                encryptedSessionKey: nil,
+                selfEncryptedSessionKey: nil
             )
         }
         

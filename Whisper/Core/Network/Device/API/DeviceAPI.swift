@@ -13,7 +13,6 @@ enum DeviceAPI {
     case getDevices
     case getDevicePrivateKey(deviceId: String)
     case registerDevice(deviceName: String, deviceFingerprint: String, encryptedPrivateKey: String)
-    case deleteDevice(deviceId: String)
 }
 
 extension DeviceAPI: TargetType {
@@ -27,8 +26,6 @@ extension DeviceAPI: TargetType {
             return "/api/devices/"
         case .getDevicePrivateKey(let deviceId):
             return "/api/devices/\(deviceId)/private-key/"
-        case .deleteDevice(let deviceId):
-            return "/api/devices/\(deviceId)/"
         }
     }
     
@@ -38,14 +35,12 @@ extension DeviceAPI: TargetType {
             return .get
         case .registerDevice:
             return .post
-        case .deleteDevice:
-            return .delete
         }
     }
     
     var task: Task {
         switch self {
-        case .getDevices, .getDevicePrivateKey, .deleteDevice:
+        case .getDevices, .getDevicePrivateKey:
             return .requestPlain
         case .registerDevice(let deviceName, let deviceFingerprint, let encryptedPrivateKey):
             let parameters: [String: Any] = [

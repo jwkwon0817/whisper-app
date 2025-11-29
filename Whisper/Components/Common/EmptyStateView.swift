@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Empty State Component
 struct EmptyStateView: View {
     let icon: String
     let title: String

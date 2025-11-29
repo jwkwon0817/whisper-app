@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Typing Indicator Component
 struct TypingIndicatorView: View {
     let typingUsers: [User]
     
@@ -15,9 +14,7 @@ struct TypingIndicatorView: View {
         Group {
             if !typingUsers.isEmpty {
                 HStack(spacing: 12) {
-                    // 프로필 이미지들
                     if typingUsers.count == 1 {
-                        // 한 명일 때: 프로필 이미지 & 이름
                         if let profileImageUrl = typingUsers.first?.profileImage,
                            let url = URL(string: profileImageUrl) {
                             AsyncImage(url: url) { image in
@@ -53,7 +50,6 @@ struct TypingIndicatorView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     } else {
-                        // 여러 명일 때: 겹쳐진 프로필 이미지들
                         ZStack(alignment: .leading) {
                             ForEach(Array(typingUsers.prefix(3).enumerated()), id: \.element.id) { index, user in
                                 if let profileImageUrl = user.profileImage,
@@ -112,7 +108,6 @@ struct TypingIndicatorView: View {
     }
 }
 
-// MARK: - Typing Dots Animation
 struct TypingDotsView: View {
     @State private var animationPhase = 0
     

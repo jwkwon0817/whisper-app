@@ -13,15 +13,11 @@ struct ChatRoomRowView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // 프로필 이미지
             ChatRoomAvatarView(room: room)
-            
-            // 채팅방 정보
             ChatRoomInfoView(room: room)
             
             Spacer()
             
-            // 시간 정보
             ChatRoomTimeView(room: room)
         }
         .padding(.vertical, 8)
@@ -29,7 +25,6 @@ struct ChatRoomRowView: View {
     }
 }
 
-// MARK: - Chat Room Avatar Component
 struct ChatRoomAvatarView: View {
     let room: ChatRoom
     
@@ -74,7 +69,6 @@ struct ChatRoomAvatarView: View {
     }
 }
 
-// MARK: - Chat Room Info Component
 struct ChatRoomInfoView: View {
     let room: ChatRoom
     
@@ -86,7 +80,6 @@ struct ChatRoomInfoView: View {
                     .foregroundColor(.primary)
                     .lineLimit(1)
                 
-                // 그룹 채팅인 경우 인원수 표시
                 if room.roomType == .group {
                     Text("(\(room.memberCount))")
                         .font(.subheadline)
@@ -104,7 +97,6 @@ struct ChatRoomInfoView: View {
     }
 }
 
-// MARK: - Chat Room Time Component
 struct ChatRoomTimeView: View {
     let room: ChatRoom
     
@@ -116,7 +108,6 @@ struct ChatRoomTimeView: View {
                     .foregroundColor(.secondary)
             }
             
-            // 읽지 않은 메시지 수 표시
             if room.unreadCount > 0 {
                 UnreadBadgeView(count: room.unreadCount)
             }
@@ -124,7 +115,6 @@ struct ChatRoomTimeView: View {
     }
 }
 
-// MARK: - Unread Badge Component
 struct UnreadBadgeView: View {
     let count: Int
     

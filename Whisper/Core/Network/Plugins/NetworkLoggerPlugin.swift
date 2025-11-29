@@ -15,20 +15,16 @@ struct NetworkLoggerPlugin: PluginType {
         let url = httpRequest.url?.absoluteString ?? "Unknown URL"
         let method = httpRequest.httpMethod ?? "Unknown"
         
-        print("\n" + String(repeating: "=", count: 80))
-        print("📤 [NetworkLogger] API 요청 시작")
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("📍 URL: \(url)")
-        print("🔧 Method: \(method)")
+        print("\n[REQUEST] \(method) \(url)")
         
         if let headers = httpRequest.allHTTPHeaderFields, !headers.isEmpty {
-            print("📋 Headers:")
+            print("Headers:")
             for (key, value) in headers.sorted(by: { $0.key < $1.key }) {
                 if key == "Authorization" {
                     let tokenPreview = String(value.prefix(20)) + "..."
-                    print("   \(key): \(tokenPreview)")
+                    print("  \(key): \(tokenPreview)")
                 } else {
-                    print("   \(key): \(value)")
+                    print("  \(key): \(value)")
                 }
             }
         }
@@ -36,16 +32,16 @@ struct NetworkLoggerPlugin: PluginType {
         if let httpBody = httpRequest.httpBody {
             if let bodyString = String(data: httpBody, encoding: .utf8) {
                 let maskedBody = maskSensitiveData(bodyString)
-                print("📦 Body:")
+                print("Body:")
                 print(maskedBody)
             } else {
-                print("📦 Body: [Binary Data - \(httpBody.count) bytes]")
+                print("Body: [Binary Data - \(httpBody.count) bytes]")
             }
         } else if let httpBodyStream = httpRequest.httpBodyStream {
-            print("📦 Body: [Stream Data]")
+            print("Body: [Stream Data]")
         }
         
-        print(String(repeating: "=", count: 80) + "\n")
+        print("")
     }
     
     func didReceive(_ result: Result<Response, MoyaError>, target: TargetType) {
@@ -54,52 +50,42 @@ struct NetworkLoggerPlugin: PluginType {
             let url = response.request?.url?.absoluteString ?? "Unknown URL"
             let statusCode = response.statusCode
             
-            print("\n" + String(repeating: "=", count: 80))
-            print("📥 [NetworkLogger] API 응답 수신")
-            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            print("📍 URL: \(url)")
-            print("✅ Status Code: \(statusCode)")
+            let statusPrefix = statusCode >= 200 && statusCode < 300 ? "SUCCESS" : "ERROR"
+            print("[RESPONSE] \(statusPrefix) \(statusCode) \(url)")
             
             if let headers = response.response?.allHeaderFields as? [String: Any], !headers.isEmpty {
-                print("📋 Response Headers:")
+                print("Headers:")
                 for (key, value) in headers.sorted(by: { "\($0.key)" < "\($1.key)" }) {
-                    print("   \(key): \(value)")
+                    print("  \(key): \(value)")
                 }
             }
             
             if !response.data.isEmpty {
                 if let responseString = String(data: response.data, encoding: .utf8) {
                     let maskedResponse = maskSensitiveData(responseString)
-                    print("📦 Response Body:")
+                    print("Body:")
                     print(maskedResponse)
                 } else {
-                    print("📦 Response Body: [Binary Data - \(response.data.count) bytes]")
+                    print("Body: [Binary Data - \(response.data.count) bytes]")
                 }
             } else {
-                print("📦 Response Body: [Empty]")
+                print("Body: [Empty]")
             }
             
-            if let requestDate = response.request?.value(forHTTPHeaderField: "X-Request-Date") {
-                print("⏱️ Request Date: \(requestDate)")
-            }
-            
-            print(String(repeating: "=", count: 80) + "\n")
+            print("")
             
         case .failure(let error):
-            let url = error.response?.request?.url?.absoluteString ?? "Unknown URL"
+            let url = error.response?.request?.url?.absoluteString ?? target.baseURL.appendingPathComponent(target.path).absoluteString
             
-            print("\n" + String(repeating: "=", count: 80))
-            print("❌ [NetworkLogger] API 요청 실패")
-            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            print("📍 URL: \(url)")
-            print("🔴 Error: \(error.localizedDescription)")
+            print("[RESPONSE] FAILED \(url)")
+            print("Error: \(error.localizedDescription)")
             
             if let response = error.response {
-                print("📊 Status Code: \(response.statusCode)")
+                print("Status Code: \(response.statusCode)")
                 
                 if !response.data.isEmpty {
                     if let errorString = String(data: response.data, encoding: .utf8) {
-                        print("📦 Error Response:")
+                        print("Error Response:")
                         print(errorString)
                     }
                 }
@@ -107,37 +93,37 @@ struct NetworkLoggerPlugin: PluginType {
             
             switch error {
             case .statusCode(let response):
-                print("   Type: Status Code Error (\(response.statusCode))")
+                print("Type: Status Code Error (\(response.statusCode))")
             case .underlying(let underlyingError, _):
-                print("   Type: Underlying Error")
-                print("   Details: \(underlyingError.localizedDescription)")
+                print("Type: Underlying Error")
+                print("Details: \(underlyingError.localizedDescription)")
             case .requestMapping(let message):
-                print("   Type: Request Mapping Error")
-                print("   Details: \(message)")
+                print("Type: Request Mapping Error")
+                print("Details: \(message)")
             case .parameterEncoding(let error):
-                print("   Type: Parameter Encoding Error")
-                print("   Details: \(error.localizedDescription)")
+                print("Type: Parameter Encoding Error")
+                print("Details: \(error.localizedDescription)")
             case .imageMapping(let response):
-                print("   Type: Image Mapping Error")
-                print("   Status Code: \(response.statusCode)")
+                print("Type: Image Mapping Error")
+                print("Status Code: \(response.statusCode)")
             case .jsonMapping(let response):
-                print("   Type: JSON Mapping Error")
-                print("   Status Code: \(response.statusCode)")
+                print("Type: JSON Mapping Error")
+                print("Status Code: \(response.statusCode)")
             case .stringMapping(let response):
-                print("   Type: String Mapping Error")
-                print("   Status Code: \(response.statusCode)")
+                print("Type: String Mapping Error")
+                print("Status Code: \(response.statusCode)")
             case .objectMapping(let error, let response):
-                print("   Type: Object Mapping Error")
-                print("   Error: \(error)")
-                print("   Status Code: \(response.statusCode)")
+                print("Type: Object Mapping Error")
+                print("Error: \(error)")
+                print("Status Code: \(response.statusCode)")
             case .encodableMapping(let error):
-                print("   Type: Encodable Mapping Error")
-                print("   Error: \(error)")
+                print("Type: Encodable Mapping Error")
+                print("Error: \(error)")
             @unknown default:
-                print("   Type: Unknown Error")
+                print("Type: Unknown Error")
             }
             
-            print(String(repeating: "=", count: 80) + "\n")
+            print("")
         }
     }
     

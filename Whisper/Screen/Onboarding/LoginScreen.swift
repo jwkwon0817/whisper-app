@@ -51,6 +51,12 @@ struct LoginScreen: View {
                         do {
                             try await handleLogin()
                             
+                            // 로그인 성공 시 WebSocket 연결
+                            NotificationManager.shared.connect()
+                            #if DEBUG
+                            print("✅ [LoginScreen] 로그인 성공 - WebSocket 연결")
+                            #endif
+                            
                             isError = false
                             isLoading = false
                             

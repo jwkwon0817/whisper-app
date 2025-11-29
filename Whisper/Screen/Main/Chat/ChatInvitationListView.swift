@@ -15,17 +15,14 @@ struct ChatInvitationListView: View {
         NavigationStack {
             Group {
                 if viewModel.isLoading && viewModel.invitations.isEmpty {
-                    // 로딩 중
                     LoadingView()
                 } else if viewModel.invitations.isEmpty {
-                    // 초대 없음
                     EmptyStateView(
                         icon: "envelope.open",
                         title: "받은 초대가 없습니다",
                         message: "친구들로부터 채팅 초대를 받으면 여기에 표시됩니다"
                     )
                 } else {
-                    // 초대 목록
                     List {
                         ForEach(viewModel.invitations) { invitation in
                             ChatInvitationRowView(
@@ -68,7 +65,6 @@ struct ChatInvitationListView: View {
     }
 }
 
-// MARK: - ChatInvitationRowView
 struct ChatInvitationRowView: View {
     let invitation: ChatInvitation
     let onAccept: () -> Void
@@ -76,9 +72,7 @@ struct ChatInvitationRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // 초대 정보
             HStack(spacing: 12) {
-                // 프로필 이미지
                 AsyncImage(url: URL(string: invitation.inviter.profileImage ?? "")) { image in
                     image
                         .resizable()
@@ -113,7 +107,6 @@ struct ChatInvitationRowView: View {
                 Spacer()
             }
             
-            // 버튼
             HStack(spacing: 12) {
                 Button {
                     onReject()

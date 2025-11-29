@@ -44,8 +44,8 @@ class FriendRequestViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            let allRequests = try await apiService.fetchReceivedFriendRequests(useCache: useCache)
-            receivedRequests = allRequests.filter { $0.status == .pending }
+            // 백엔드에서 이미 pending 상태만 반환하므로 필터링 불필요
+            receivedRequests = try await apiService.fetchReceivedFriendRequests(useCache: useCache)
             // 알림 카운트 업데이트
             notificationManager.friendRequestCount = receivedRequests.count
         } catch {
@@ -113,19 +113,22 @@ class FriendRequestViewModel: ObservableObject {
         notificationManager.friendRequestCount = receivedRequests.count
         
         do {
-            let result = try await apiService.respondToFriendRequest(friendId: friend.id, action: action)
-            
-            #if DEBUG
-            print("🔵 [FriendRequestViewModel] API 응답 - status: \(result.status)")
-            #endif
+            try await apiService.respondToFriendRequest(friendId: friend.id, action: action)
             
             #if DEBUG
             print("✅ [FriendRequestViewModel] 친구 요청 \(action) 성공: \(friend.id)")
             #endif
             
-            // 수락한 경우 친구 목록 캐시 무효화 (FriendListViewModel이 자동 갱신할 수 있도록)
+            // 수락한 경우 친구 목록 캐시 무효화 및 친구 목록 갱신 알림 전송
             if action == "accept" {
                 await CacheManager.shared.remove(forKey: CacheKeys.friends())
+                
+                // 친구 목록 갱신 알림 전송
+                NotificationCenter.default.post(name: .friendRequestAccepted, object: nil)
+                
+                #if DEBUG
+                print("📢 [FriendRequestViewModel] 친구 수락 알림 전송")
+                #endif
             }
         } catch {
             // 실패 시 롤백

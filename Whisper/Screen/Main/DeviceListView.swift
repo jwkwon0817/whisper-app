@@ -12,8 +12,6 @@ struct DeviceListView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
-    @State private var showDeleteConfirmation = false
-    @State private var deviceToDelete: Device?
     
     var body: some View {
         ZStack {
@@ -53,30 +51,12 @@ struct DeviceListView: View {
         } message: {
             Text(errorMessage ?? "알 수 없는 오류가 발생했습니다.")
         }
-        .alert("기기 삭제", isPresented: $showDeleteConfirmation) {
-            Button("취소", role: .cancel) {
-                deviceToDelete = nil
-            }
-            Button("삭제", role: .destructive) {
-                if let device = deviceToDelete {
-                    Task {
-                        await deleteDevice(device)
-                    }
-                }
-            }
-        } message: {
-            if let device = deviceToDelete {
-                Text("'\(device.deviceName)' 기기를 삭제하시겠습니까?\n\n이 기기에서는 더 이상 메시지를 복호화할 수 없게 됩니다.")
-            }
-        }
     }
     
     private var deviceList: some View {
         List {
             ForEach(devices) { device in
-                DeviceRowView(device: device) {
-                    confirmDelete(device)
-                }
+                DeviceRowView(device: device)
             }
         }
         .refreshable {
@@ -115,54 +95,12 @@ struct DeviceListView: View {
         
         isLoading = false
     }
-    
-    private func deleteDevice(_ device: Device) async {
-        // 현재 기기는 삭제 불가
-        if device.isCurrentDevice {
-            errorMessage = "현재 사용 중인 기기는 삭제할 수 없습니다."
-            showError = true
-            deviceToDelete = nil
-            showDeleteConfirmation = false
-            return
-        }
-        
-        // 주 기기는 삭제 불가
-        if device.isPrimary {
-            errorMessage = "주 기기는 삭제할 수 없습니다. 다른 기기를 주 기기로 설정한 후 삭제해주세요."
-            showError = true
-            deviceToDelete = nil
-            showDeleteConfirmation = false
-            return
-        }
-        
-        isLoading = true
-        errorMessage = nil
-        
-        do {
-            try await NetworkManager.shared.deviceService.deleteDevice(deviceId: device.id)
-            // 목록에서 제거
-            devices.removeAll { $0.id == device.id }
-        } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-        }
-        
-        isLoading = false
-        deviceToDelete = nil
-        showDeleteConfirmation = false
-    }
-    
-    private func confirmDelete(_ device: Device) {
-        deviceToDelete = device
-        showDeleteConfirmation = true
-    }
 }
 
 // MARK: - Device Row View
 
 struct DeviceRowView: View {
     let device: Device
-    let onDelete: () -> Void
     
     var body: some View {
         HStack(spacing: 16) {
@@ -212,15 +150,6 @@ struct DeviceRowView: View {
             }
             
             Spacer()
-            
-            // 삭제 버튼 (현재 기기와 주 기기는 삭제 불가)
-            if !device.isCurrentDevice && !device.isPrimary {
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
-            }
         }
         .padding(.vertical, 8)
     }

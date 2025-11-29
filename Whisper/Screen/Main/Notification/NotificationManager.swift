@@ -17,6 +17,9 @@ class NotificationManager: ObservableObject {
     @Published var notifications: [AppNotification] = []
     @Published var friendRequestCount = 0
     
+    // 현재 활성화된 채팅방 ID (해당 채팅방의 알림은 표시하지 않음)
+    var currentActiveChatRoomId: String?
+    
     let friendRequestReceived = PassthroughSubject<AppNotification, Never>()
     let newMessageReceived = PassthroughSubject<AppNotification, Never>()
     
@@ -64,6 +67,19 @@ class NotificationManager: ObservableObject {
             )
             
         case .newMessage:
+            // 현재 활성화된 채팅방의 메시지면 알림 표시하지 않음
+            let isActiveRoom = notification.data.roomId != nil && notification.data.roomId == currentActiveChatRoomId
+            
+            if isActiveRoom {
+                #if DEBUG
+                print("🔕 [NotificationManager] 현재 채팅방 메시지 - 알림 표시 안함: \(notification.data.roomId ?? "")")
+                #endif
+                // 활성 채팅방이어도 newMessageReceived는 전송 (채팅방 내 UI 업데이트용)
+                newMessageReceived.send(notification)
+                return
+            }
+            
+            // 활성 채팅방이 아닌 경우에만 알림 표시
             newMessageReceived.send(notification)
             
             if let senderName = notification.data.sender?.name {

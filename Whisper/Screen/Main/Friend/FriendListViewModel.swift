@@ -35,6 +35,20 @@ class FriendListViewModel: BaseViewModelImpl {
             }
             .store(in: &cancellables)
         
+        // 친구 요청 수락 시 목록 갱신
+        NotificationCenter.default.publisher(for: .friendRequestAccepted)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                #if DEBUG
+                print("📬 [FriendListViewModel] 친구 수락 알림 수신 - 목록 갱신")
+                #endif
+                _ = _Concurrency.Task {
+                    await self.loadFriends(useCache: false)
+                }
+            }
+            .store(in: &cancellables)
+        
         #if DEBUG
         print("✅ [FriendListViewModel] 알림 구독 설정 완료")
         #endif
@@ -45,9 +59,8 @@ class FriendListViewModel: BaseViewModelImpl {
         errorMessage = nil
         
         do {
-            let allFriends = try await apiService.fetchFriends(useCache: useCache)
-            // 수락된 친구만 필터링
-            friends = allFriends.filter { $0.status == .accepted }
+            // 백엔드에서 이미 수락된 친구만 반환하므로 필터링 불필요
+            friends = try await apiService.fetchFriends(useCache: useCache)
         } catch {
             errorMessage = error.localizedDescription
             showError = true
@@ -68,7 +81,7 @@ class FriendListViewModel: BaseViewModelImpl {
             if !friends.contains(where: { $0.id == friendToRestore.id }) {
                 friends.append(friendToRestore)
                 friends.sort(by: { (friend1: Friend, friend2: Friend) -> Bool in
-                    friend1.otherUser.name < friend2.otherUser.name
+                    friend1.user.name < friend2.user.name
                 })
             }
             errorMessage = error.localizedDescription

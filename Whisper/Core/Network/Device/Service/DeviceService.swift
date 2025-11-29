@@ -24,18 +24,5 @@ class DeviceService: BaseService<DeviceAPI> {
             encryptedPrivateKey: encryptedPrivateKey
         ), as: Device.self)
     }
-    
-    func deleteDevice(deviceId: String) async throws {
-        return try await withCheckedThrowingContinuation { continuation in
-            provider.request(.deleteDevice(deviceId: deviceId)) { result in
-                switch result {
-                case .success:
-                    continuation.resume()
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
 }
 

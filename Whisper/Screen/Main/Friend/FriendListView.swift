@@ -45,6 +45,15 @@ struct FriendListView: View {
                                     await viewModel.deleteFriend(friend)
                                 }
                             }
+                            .contextMenu {
+                                Button(role: .destructive, action: {
+                                    Task {
+                                        await viewModel.deleteFriend(friend)
+                                    }
+                                }) {
+                                    Label("친구 삭제", systemImage: "person.fill.xmark")
+                                }
+                            }
                         }
                     }
                 }
@@ -85,7 +94,7 @@ struct FriendRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             // 프로필 이미지
-            if let profileImageUrl = friend.otherUser.profileImage,
+            if let profileImageUrl = friend.user.profileImage,
                let url = URL(string: profileImageUrl) {
                 AsyncImage(url: url) { image in
                     image
@@ -110,7 +119,7 @@ struct FriendRowView: View {
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(friend.otherUser.name)
+                Text(friend.user.name)
                     .font(.headline)
             }
             
@@ -122,7 +131,11 @@ struct FriendRowView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
+                    .foregroundColor(.primary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(PlainButtonStyle())
         }
         .padding(.vertical, 4)
     }
@@ -257,7 +270,7 @@ struct FriendRequestRowView: View {
             
             // 사용자 정보
             VStack(alignment: .leading, spacing: 4) {
-                Text(request.requester.name)
+                Text(request.user.name)
                     .font(.headline)
                     .foregroundColor(.primary)
                 Text("친구 요청")
@@ -276,7 +289,7 @@ struct FriendRequestRowView: View {
     // MARK: - Profile Image View
     private var profileImageView: some View {
         Group {
-            if let profileImageUrl = request.requester.profileImage,
+            if let profileImageUrl = request.user.profileImage,
                let url = URL(string: profileImageUrl) {
                 AsyncImage(url: url) { phase in
                     switch phase {

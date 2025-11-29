@@ -8,8 +8,6 @@
 import SwiftUI
 
 extension Color {
-    // PlatformColor를 사용하도록 변경됨
-    
     init(hex: String, alpha: Double = 1.0) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

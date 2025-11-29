@@ -161,7 +161,9 @@ class ChatRoomViewModel: ObservableObject {
             
             var hasUpdate = false
             for (index, message) in self.messages.enumerated() {
-                if messageIds.contains(message.id) && message.sender.id == currentUserId && !message.isRead {
+                if messageIds.contains(message.id),
+                   let sender = message.sender,
+                   sender.id == currentUserId && !message.isRead {
                     self.messages[index] = message.withReadStatus(true)
                     hasUpdate = true
                 }
@@ -537,7 +539,24 @@ class ChatRoomViewModel: ObservableObject {
         }
         
         // 암호화된 메시지인 경우
-        if message.encryptedContent != nil {
+        if let encryptedContent = message.encryptedContent {
+            // 내가 보낸 메시지인 경우 sentMessageContents에서 원본 찾기 (빠른 매칭)
+            if message.isFromCurrentUser {
+                if let originalContent = encryptionHandler.getSentMessageContent(for: encryptedContent) {
+                    // 원본 내용을 찾았으면 저장하고 반환
+                    encryptionHandler.saveDecryptedMessage(messageId: message.id, content: originalContent)
+                    cacheManager.saveSentMessageContent(messageId: message.id, content: originalContent)
+                    encryptionHandler.removeSentMessageContent(for: encryptedContent)
+                    return originalContent
+                }
+                
+                // 로컬 캐시에서 복원 시도
+                if let savedContent = cacheManager.loadSentMessageContent(messageId: message.id) {
+                    encryptionHandler.saveDecryptedMessage(messageId: message.id, content: savedContent)
+                    return savedContent
+                }
+            }
+            
             // 아직 복호화되지 않았고, 복호화 시도 중이 아니면 복호화 시작
             if !encryptionHandler.isDecrypting(messageId: message.id) {
                 encryptionHandler.markDecrypting(messageId: message.id)
@@ -551,20 +570,16 @@ class ChatRoomViewModel: ObservableObject {
                         if let selfEncryptedSessionKey = message.selfEncryptedSessionKey {
                             await encryptionHandler.decryptMessage(
                                 messageId: message.id,
-                                encryptedContent: message.encryptedContent!,
+                                encryptedContent: encryptedContent,
                                 encryptedSessionKey: selfEncryptedSessionKey,
                                 isSelfKey: true
                             )
-                        } else {
-                            // 로컬 캐시에서 복원 시도
-                            if let savedContent = cacheManager.loadSentMessageContent(messageId: message.id) {
-                                encryptionHandler.saveDecryptedMessage(messageId: message.id, content: savedContent)
-                            }
                         }
+                        // else: 이미 위에서 sentMessageContents와 캐시를 확인했으므로 추가 작업 불필요
                     } else {
                         await encryptionHandler.decryptMessage(
                             messageId: message.id,
-                            encryptedContent: message.encryptedContent!,
+                            encryptedContent: encryptedContent,
                             encryptedSessionKey: message.encryptedSessionKey,
                             isSelfKey: false
                         )
@@ -576,6 +591,51 @@ class ChatRoomViewModel: ObservableObject {
         }
         
         return message.displayContent
+    }
+    
+    func getReplyToDisplayContent(for replyTo: ReplyToMessage) -> String {
+        // 1. 이미 로드된 메시지 중에서 찾기
+        if let originalMessage = messages.first(where: { $0.id == replyTo.id }) {
+            return getDisplayContent(for: originalMessage)
+        }
+        
+        // 2. 복호화된 내용 캐시 확인
+        if let decrypted = encryptionHandler.getDecryptedContent(for: replyTo.id) {
+            return decrypted
+        }
+        
+        // 3. 암호화된 내용이 있으면 복호화 시도
+        if let encryptedContent = replyTo.encryptedContent {
+            // 아직 복호화되지 않았고, 복호화 시도 중이 아니면 복호화 시작
+            if !encryptionHandler.isDecrypting(messageId: replyTo.id) {
+                encryptionHandler.markDecrypting(messageId: replyTo.id)
+                
+                Task {
+                    if replyTo.isFromCurrentUser {
+                        if let selfEncryptedSessionKey = replyTo.selfEncryptedSessionKey {
+                            await encryptionHandler.decryptMessage(
+                                messageId: replyTo.id,
+                                encryptedContent: encryptedContent,
+                                encryptedSessionKey: selfEncryptedSessionKey,
+                                isSelfKey: true
+                            )
+                        }
+                    } else {
+                        if let encryptedSessionKey = replyTo.encryptedSessionKey {
+                            await encryptionHandler.decryptMessage(
+                                messageId: replyTo.id,
+                                encryptedContent: encryptedContent,
+                                encryptedSessionKey: encryptedSessionKey,
+                                isSelfKey: false
+                            )
+                        }
+                    }
+                }
+            }
+            return "[암호화된 메시지]"
+        }
+        
+        return replyTo.displayContent
     }
     
     func retryDecryption() async {
@@ -683,38 +743,60 @@ class ChatRoomViewModel: ObservableObject {
     private func handleMessageUpdate(_ updatedMessage: Message) async {
         guard let index = messages.firstIndex(where: { $0.id == updatedMessage.id }) else { return }
         
+        // 기존 메시지와 비교하여 encryptedContent가 변경되었는지 확인
+        let oldMessage = messages[index]
+        let isContentChanged = oldMessage.encryptedContent != updatedMessage.encryptedContent
+        
         messages[index] = updatedMessage
         
         // 1:1 채팅이고 암호화된 메시지인 경우 재복호화
         let shouldDecrypt = (room?.roomType == .direct) || (updatedMessage.encryptedContent != nil)
+        
         if shouldDecrypt, let encryptedContent = updatedMessage.encryptedContent {
-            await encryptionHandler.removeDecryptedMessage(messageId: updatedMessage.id)
+            // 내용이 변경되었거나 아직 복호화되지 않은 경우
+            if isContentChanged || encryptionHandler.getDecryptedContent(for: updatedMessage.id) == nil {
+                // 기존 복호화 내용을 삭제하지 않고, 새로운 내용으로 덮어쓰기 위해 force: true 사용
+                // 이렇게 하면 복호화 중에는 이전 내용이 보이다가 완료되면 새 내용으로 자연스럽게 전환됨
             
+                // 내가 수정한 메시지인 경우
             if updatedMessage.isFromCurrentUser {
-                if let selfEncryptedSessionKey = updatedMessage.selfEncryptedSessionKey {
+                    // 1. 원본 내용을 캐시에서 찾기 시도 (가장 빠름)
+                    if let originalContent = encryptionHandler.getSentMessageContent(for: encryptedContent) {
+                        encryptionHandler.saveDecryptedMessage(messageId: updatedMessage.id, content: originalContent)
+                        cacheManager.saveSentMessageContent(messageId: updatedMessage.id, content: originalContent)
+                        encryptionHandler.removeSentMessageContent(for: encryptedContent)
+                    }
+                    // 2. Self Key로 복호화 시도
+                    else if let selfEncryptedSessionKey = updatedMessage.selfEncryptedSessionKey {
                     await encryptionHandler.decryptMessage(
                         messageId: updatedMessage.id,
                         encryptedContent: encryptedContent,
                         encryptedSessionKey: selfEncryptedSessionKey,
-                        isSelfKey: true
+                            isSelfKey: true,
+                            force: true
                     )
                 }
-            } else {
+                } 
+                // 상대방이 수정한 메시지인 경우
+                else {
                 if let encryptedSessionKey = updatedMessage.encryptedSessionKey {
                     await encryptionHandler.decryptMessage(
                         messageId: updatedMessage.id,
                         encryptedContent: encryptedContent,
                         encryptedSessionKey: encryptedSessionKey,
-                        isSelfKey: false
+                            isSelfKey: false,
+                            force: true
                     )
+                    }
                 }
             }
+        } else {
+            // 복호화가 필요 없는 경우 (일반 텍스트 수정)
+            objectWillChange.send()
         }
         
-        objectWillChange.send()
-        
         #if DEBUG
-        print("✅ [ChatRoomViewModel] 메시지 수정 완료")
+        print("✅ [ChatRoomViewModel] 메시지 수정 처리 완료")
         #endif
     }
     

@@ -50,7 +50,7 @@ struct CreateChatView: View {
                                     selectedFriend = friend
                                 }) {
                                     HStack {
-                                        if let profileImageUrl = friend.otherUser.profileImage,
+                                        if let profileImageUrl = friend.user.profileImage,
                                            let url = URL(string: profileImageUrl) {
                                             AsyncImage(url: url) { image in
                                                 image
@@ -74,7 +74,7 @@ struct CreateChatView: View {
                                                 }
                                         }
                                         
-                                        Text(friend.otherUser.name)
+                                        Text(friend.user.name)
                                             .foregroundColor(.primary)
                                         
                                         Spacer()
@@ -117,7 +117,7 @@ struct CreateChatView: View {
                                     }
                                 }) {
                                     HStack {
-                                        if let profileImageUrl = friend.otherUser.profileImage,
+                                        if let profileImageUrl = friend.user.profileImage,
                                            let url = URL(string: profileImageUrl) {
                                             AsyncImage(url: url) { image in
                                                 image
@@ -141,7 +141,7 @@ struct CreateChatView: View {
                                                 }
                                         }
                                         
-                                        Text(friend.otherUser.name)
+                                        Text(friend.user.name)
                                             .foregroundColor(.primary)
                                         
                                         Spacer()
@@ -236,9 +236,9 @@ struct CreateChatView: View {
                     return
                 }
                 
-                _ = try await chatService.createDirectChat(userId: friend.otherUser.id)
+                _ = try await chatService.createDirectChat(userId: friend.user.id)
                 
-                successMessage = "\(friend.otherUser.name)님에게 1:1 채팅 초대를 보냈습니다.\n상대방이 수락하면 채팅을 시작할 수 있습니다."
+                successMessage = "\(friend.user.name)님에게 1:1 채팅 초대를 보냈습니다.\n상대방이 수락하면 채팅을 시작할 수 있습니다."
                 showSuccess = true
                 
             } else {
@@ -256,7 +256,7 @@ struct CreateChatView: View {
                     return
                 }
                 
-                let memberIds = selectedFriends.map { $0.otherUser.id }
+                let memberIds = selectedFriends.map { $0.user.id }
                 let room = try await chatService.createGroupChat(
                     name: groupName,
                     description: groupDescription.isEmpty ? nil : groupDescription,

@@ -11,12 +11,10 @@ import Moya
 class UserService: BaseService<UserAPI> {
     private let cacheManager = CacheManager.shared
     
-    // 백그라운드 갱신 중복 방지를 위한 플래그
     private var isRefreshingMe = false
     
     func fetchMe(useCache: Bool = true) async throws -> User {
         if useCache, let cached = await cacheManager.get(User.self, forKey: CacheKeys.currentUser()) {
-            // 백그라운드 갱신이 이미 진행 중이면 추가 갱신 안 함
             if !isRefreshingMe {
                 isRefreshingMe = true
                 _Concurrency.Task { [weak self] in
@@ -32,10 +30,6 @@ class UserService: BaseService<UserAPI> {
                             await self?.cacheManager.set(fresh, forKey: CacheKeys.currentUser(), ttl: CacheTTL.user)
                         }
                     } catch {
-                        // 백그라운드 갱신 실패는 무시
-                        #if DEBUG
-                        print("⚠️ [UserService] /me 백그라운드 갱신 실패: \(error)")
-                        #endif
                     }
                 }
             }
@@ -52,7 +46,6 @@ class UserService: BaseService<UserAPI> {
             provider.request(.delete(confirmText: confirmText, password: password)) { result in
                 switch result {
                 case .success:
-                    // 성공 시 모든 데이터 삭제
                     KeychainHelper.removeItem(forAccount: "accessToken")
                     KeychainHelper.removeItem(forAccount: "refreshToken")
                     KeychainHelper.removeItem(forAccount: "user_password")

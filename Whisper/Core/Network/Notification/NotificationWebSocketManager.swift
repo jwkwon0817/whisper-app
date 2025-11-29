@@ -5,8 +5,8 @@
 //  Created by jwkwon0817 on 11/17/25.
 //
 
-import Foundation
 import Combine
+import Foundation
 
 struct AppNotification: Identifiable, Codable {
     let id: String
@@ -141,20 +141,14 @@ class NotificationWebSocketManager: ObservableObject {
                        type == "notification",
                        let notificationData = json["notification"] as? [String: Any],
                        let notificationJsonData = try? JSONSerialization.data(withJSONObject: notificationData),
-                       let notification = try? decoder.decode(AppNotification.self, from: notificationJsonData) {
-                        
+                       let notification = try? decoder.decode(AppNotification.self, from: notificationJsonData)
+                    {
                         Task { @MainActor in
                             self.receivedNotification.send(notification)
                         }
-                    } else {
-                        #if DEBUG
-                        print("⚠️ [NotificationWebSocket] 알림 형식이 아님 또는 디코딩 실패")
-                        print(String(repeating: "-", count: 80) + "\n")
-                        #endif
                     }
                 }
-            } catch {
-            }
+            } catch {}
             
         case .data:
             break
@@ -165,6 +159,7 @@ class NotificationWebSocketManager: ObservableObject {
     }
     
     // MARK: - URL 생성
+
     private func buildWebSocketURL(token: String) -> URL? {
         let baseURL = EnvironmentVariables.baseURL
             .replacingOccurrences(of: "https://", with: "wss://")
@@ -179,4 +174,3 @@ class NotificationWebSocketManager: ObservableObject {
         return components?.url
     }
 }
-

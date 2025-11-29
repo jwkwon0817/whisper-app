@@ -47,7 +47,6 @@ extension FileUploadAPI: TargetType {
 }
 
 class FileUploadService: BaseService<FileUploadAPI> {
-    // MARK: - 이미지 업로드
     func uploadImage(_ image: UIImage, folder: String = "chat") async throws -> Asset {
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
             throw FileUploadError.invalidImage

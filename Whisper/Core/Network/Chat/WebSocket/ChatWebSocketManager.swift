@@ -46,7 +46,6 @@ struct WebSocketIncomingMessage: Codable {
         
         type = try container.decode(WebSocketMessageType.self, forKey: .type)
         
-        // message 필드는 Message 객체일 수도 있고, 에러 메시지의 경우 문자열일 수도 있음
         if let messageValue = try? container.decode(Message.self, forKey: .message) {
             message = messageValue
         } else {
@@ -111,7 +110,6 @@ class ChatWebSocketManager: ObservableObject {
     private let maxReconnectDelay: TimeInterval = 60.0
     private var isReconnecting = false
     
-    // Ping Timer
     private var pingTimer: Timer?
     
     var currentRoomId: String?
@@ -245,7 +243,6 @@ class ChatWebSocketManager: ObservableObject {
         }
     }
     
-    // MARK: - 메시지 처리
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
         switch message {
         case .string(let text):
@@ -307,7 +304,6 @@ class ChatWebSocketManager: ObservableObject {
             }
             
         case .data(let data):
-            // Binary data is not expected, ignore
             break
             
         @unknown default:

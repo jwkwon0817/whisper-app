@@ -43,6 +43,7 @@ struct ChatRoomView: View {
                     messages: viewModel.messages,
                     isLoadingMore: viewModel.isLoadingMore,
                     getDisplayContent: { viewModel.getDisplayContent(for: $0) },
+                    getReplyToDisplayContent: { viewModel.getReplyToDisplayContent(for: $0) },
                     onLoadMore: {
                         await viewModel.loadMoreMessages()
                     },
@@ -53,6 +54,9 @@ struct ChatRoomView: View {
                     onDelete: { message in
                         messageToDelete = message
                         showDeleteAlert = true
+                    },
+                    onReply: { message in
+                        replyToMessage = message
                     },
                     onMessageAppear: { message in
                         viewModel.onMessageAppear(message)
@@ -66,6 +70,7 @@ struct ChatRoomView: View {
                 messageText: $messageText,
                 replyToMessage: $replyToMessage,
                 editingMessage: $editingMessage,
+                getDisplayContent: { viewModel.getDisplayContent(for: $0) },
                 onSend: handleSend,
                 onTyping: { viewModel.sendTypingIndicator(isTyping: $0) },
                 onImageSelect: { showImagePicker = true },
@@ -74,15 +79,20 @@ struct ChatRoomView: View {
         }
         .navigationTitle(viewModel.room?.displayName ?? "채팅")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar) // 채팅방에서는 탭바 숨김
         .task {
             // 현재 활성화된 채팅방 ID 등록
             router.currentActiveChatRoomId = roomId
+            NotificationManager.shared.currentActiveChatRoomId = roomId
             await viewModel.loadRoom()
         }
         .onDisappear {
             // 채팅방을 나가면 활성화된 채팅방 ID 제거
             if router.currentActiveChatRoomId == roomId {
                 router.currentActiveChatRoomId = nil
+            }
+            if NotificationManager.shared.currentActiveChatRoomId == roomId {
+                NotificationManager.shared.currentActiveChatRoomId = nil
             }
             viewModel.disconnect()
         }

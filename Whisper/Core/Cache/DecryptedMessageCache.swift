@@ -11,19 +11,15 @@ actor DecryptedMessageCache {
     static let shared = DecryptedMessageCache()
     
     private let cacheDirectory: URL
-    private var memoryCache: [String: [String: String]] = [:] // roomId -> [messageId: decryptedContent]
+    private var memoryCache: [String: [String: String]] = [:]
     
     private init() {
         let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         cacheDirectory = cacheDir.appendingPathComponent("DecryptedMessages")
         
-        // 디렉토리 생성
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
     }
     
-    // MARK: - Public Methods
-    
-    /// 복호화된 메시지 저장
     func save(roomId: String, messageId: String, decryptedContent: String) async {
         guard !decryptedContent.isEmpty else {
             return

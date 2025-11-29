@@ -65,21 +65,16 @@ struct RegisterScreen: View {
                     await handleNextStep()
                 }
             } label: {
-                Group {
-                    if isLoading {
-                        ProgressView()
-                    } else {
-                        Text(currentStep == 3 ? "가입하기" : "다음")
-                    }
+                if isLoading {
+                    ProgressView()
+                } else {
+                    Text(currentStep == 3 ? "가입하기" : "다음")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .foregroundColor(.white)
-                .cornerRadius(12)
-                .padding(.horizontal)
-                .disabled(!canProceed || isLoading || phoneNumber.isEmpty)
             }
             .buttonStyle(.glass)
+            .disabled(!canProceed || isLoading || phoneNumber.isEmpty)
         }
         .navigationTitle("회원가입")
         .platformNavigationBarTitleDisplayMode(.inline)
@@ -330,6 +325,12 @@ struct RegisterScreen: View {
                 print("⚠️ 사용자 정보 가져오기 실패: \(error)")
                 // 회원가입은 성공했으므로 계속 진행
             }
+            
+            // 12. WebSocket 연결 (알림 수신용)
+            NotificationManager.shared.connect()
+            #if DEBUG
+            print("✅ [RegisterScreen] 회원가입 성공 - WebSocket 연결")
+            #endif
             
             dismiss()
             onRegisterSuccess?()

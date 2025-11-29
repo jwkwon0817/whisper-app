@@ -10,7 +10,7 @@ import Foundation
 struct Message: Identifiable, Codable, Equatable {
     let id: String
     let room: String
-    let sender: User
+    let sender: User?
     let messageType: MessageType
     let content: String?
     let encryptedContent: String?
@@ -54,7 +54,8 @@ struct Message: Identifiable, Codable, Equatable {
     }
     
     var isFromCurrentUser: Bool {
-        guard let currentUserId = CurrentUser.shared.id else { return false }
+        guard let currentUserId = CurrentUser.shared.id,
+              let sender = sender else { return false }
         return sender.id == currentUserId
     }
     
@@ -103,19 +104,41 @@ struct Message: Identifiable, Codable, Equatable {
 
 struct ReplyToMessage: Codable, Equatable {
     let id: String
-    let sender: User
+    let sender: User?
     let content: String
     let messageType: Message.MessageType
+    let encryptedContent: String?
+    let encryptedSessionKey: String?
+    let selfEncryptedSessionKey: String?
     
     enum CodingKeys: String, CodingKey {
         case id
         case sender
         case content
         case messageType = "message_type"
+        case encryptedContent = "encrypted_content"
+        case encryptedSessionKey = "encrypted_session_key"
+        case selfEncryptedSessionKey = "self_encrypted_session_key"
     }
     
     static func == (lhs: ReplyToMessage, rhs: ReplyToMessage) -> Bool {
         lhs.id == rhs.id
+    }
+    
+    var isFromCurrentUser: Bool {
+        guard let currentUserId = CurrentUser.shared.id,
+              let sender = sender else { return false }
+        return sender.id == currentUserId
+    }
+    
+    var displayContent: String {
+        if !content.isEmpty && content != "[암호화된 메시지]" {
+            return content
+        }
+        if encryptedContent != nil {
+            return "[암호화된 메시지]"
+        }
+        return ""
     }
 }
 

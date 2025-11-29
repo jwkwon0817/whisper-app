@@ -48,11 +48,11 @@ class FriendService: BaseService<FriendAPI> {
         return requests
     }
     
-    func respondToFriendRequest(friendId: String, action: String) async throws -> Friend {
-        let result = try await request(.respondToFriendRequest(friendId: friendId, action: action), as: Friend.self)
+    func respondToFriendRequest(friendId: String, action: String) async throws {
+        // 백엔드에서 FriendSerializer를 반환하지만, 앱에서는 응답을 사용하지 않으므로 EmptyResponse로 처리
+        _ = try await request(.respondToFriendRequest(friendId: friendId, action: action), as: EmptyResponse.self)
         await cacheManager.remove(forKey: CacheKeys.friends())
         await cacheManager.remove(forKey: CacheKeys.friendRequests())
-        return result
     }
     
     func deleteFriend(friendId: String) async throws {

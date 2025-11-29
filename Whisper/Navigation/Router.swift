@@ -9,7 +9,6 @@ import SwiftUI
 
 @Observable
 class Router {
-    // 각 탭마다 독립적인 네비게이션 스택
     var paths: [TabRoute: NavigationPath] = [:]
     
     var path: NavigationPath {
@@ -24,13 +23,10 @@ class Router {
     var presentedSheet: Route?
     var presentedFullScreen: Route?
     
-    // 현재 활성화된 채팅방 ID (알림 필터링용)
     var currentActiveChatRoomId: String?
     
     var selectedTab: TabRoute = .home {
         didSet {
-            // 탭 전환 시 이전 탭의 스택을 저장하고 새 탭의 스택을 로드
-            // paths는 이미 각 탭별로 관리되므로 자동으로 처리됨
         }
     }
     

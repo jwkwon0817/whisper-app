@@ -133,7 +133,7 @@ class ChatRoomListViewModel: BaseViewModelImpl {
         print("📨 [ChatRoomListViewModel] 채팅방 마지막 메시지 업데이트")
         print("   Room ID: \(room.id)")
         print("   Message ID: \(message.id)")
-        print("   Sender: \(message.sender.name)")
+        print("   Sender: \(message.sender?.name ?? "Unknown")")
         #endif
         
         // 낙관적 업데이트: 해당 채팅방을 리스트 맨 위로 이동

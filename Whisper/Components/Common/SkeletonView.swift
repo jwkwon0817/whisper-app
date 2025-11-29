@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Skeleton View
 struct SkeletonView: View {
     @State private var isAnimating = false
     
@@ -36,7 +35,6 @@ struct SkeletonView: View {
     }
 }
 
-// MARK: - Message Skeleton
 struct MessageSkeletonView: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -66,7 +64,6 @@ struct MessageSkeletonView: View {
 struct ChatRoomRowSkeletonView: View {
     var body: some View {
         HStack(spacing: 12) {
-            // 프로필 이미지
             SkeletonView()
                 .frame(width: 50, height: 50)
                 .clipShape(Circle())
@@ -101,7 +98,6 @@ struct ChatRoomRowSkeletonView: View {
 struct FriendRowSkeletonView: View {
     var body: some View {
         HStack(spacing: 12) {
-            // 프로필 이미지
             SkeletonView()
                 .frame(width: 50, height: 50)
                 .clipShape(Circle())

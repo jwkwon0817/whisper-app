@@ -12,18 +12,12 @@ internal import Alamofire
 class NetworkManager {
     static let shared = NetworkManager()
     
-    // MARK: - Encoder & Decoder
-
     let encoder = JSONEncoder()
     let decoder = JSONDecoder()
     
-    // MARK: - URLSession Configuration
-
-    /// macOS와 iOS 모두에서 작동하는 URLSession 설정
     private var urlSessionConfiguration: URLSessionConfiguration {
         let config = URLSessionConfiguration.default
         #if os(macOS)
-        // macOS에서 네트워크 요청을 위한 설정
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 60
         config.waitsForConnectivity = true
@@ -32,14 +26,10 @@ class NetworkManager {
         return config
     }
     
-    // MARK: - Plugins
-
     private let plugins: [PluginType] = [
         AuthTokenPlugin(),
         NetworkLoggerPlugin()
     ]
-    
-    // MARK: - Provider Factory
     
     private func createProvider<T: TargetType>() -> MoyaProvider<T> {
         MoyaProvider<T>(
@@ -48,8 +38,6 @@ class NetworkManager {
         )
     }
     
-    // MARK: - Moya Providers (macOS 호환)
-
     lazy var userProvider: MoyaProvider<UserAPI> = createProvider()
     lazy var authProvider: MoyaProvider<AuthAPI> = createProvider()
     lazy var deviceProvider: MoyaProvider<DeviceAPI> = createProvider()

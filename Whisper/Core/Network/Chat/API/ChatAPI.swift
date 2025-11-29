@@ -14,23 +14,16 @@ enum ChatAPI {
     case createDirectChat(userId: String)
     case createGroupChat(name: String, description: String?, memberIds: [String])
     case fetchChatRoomDetail(roomId: String)
-    case updateChatRoom(roomId: String, name: String?, description: String?)
     case fetchMessages(roomId: String, page: Int, pageSize: Int)
     case updateMessage(roomId: String, messageId: String, content: String?, encryptedContent: String?, encryptedSessionKey: String?, selfEncryptedSessionKey: String?)
     case deleteMessage(roomId: String, messageId: String)
     case markMessagesAsRead(roomId: String, messageIds: [String])
     case leaveChatRoom(roomId: String)
-    case addChatRoomMembers(roomId: String, userIds: [String])
-    case removeChatRoomMember(roomId: String, userId: String)
-    case sendGroupChatInvitation(roomId: String, userId: String)
     case fetchAllChatInvitations
-    case fetchDirectChatInvitations
-    case fetchGroupChatInvitations
     case respondToDirectChatInvitation(invitationId: String, action: String)
     case respondToGroupChatInvitation(invitationId: String, action: String)
     case fetchChatFolders
     case createChatFolder(name: String, color: String, icon: String)
-    case updateChatFolder(folderId: String, name: String?, color: String?, icon: String?)
     case deleteChatFolder(folderId: String)
     case addRoomToFolder(folderId: String, roomId: String)
     case removeRoomFromFolder(folderId: String, roomId: String)
@@ -49,7 +42,7 @@ extension ChatAPI: TargetType {
             return "/api/chat/rooms/direct/"
         case .createGroupChat:
             return "/api/chat/rooms/group/"
-        case .fetchChatRoomDetail(let roomId), .updateChatRoom(let roomId, _, _):
+        case .fetchChatRoomDetail(let roomId):
             return "/api/chat/rooms/\(roomId)/"
         case .fetchMessages(let roomId, _, _):
             return "/api/chat/rooms/\(roomId)/messages/"
@@ -59,18 +52,8 @@ extension ChatAPI: TargetType {
             return "/api/chat/rooms/\(roomId)/messages/read/"
         case .leaveChatRoom(let roomId):
             return "/api/chat/rooms/\(roomId)/leave/"
-        case .addChatRoomMembers(let roomId, _):
-            return "/api/chat/rooms/\(roomId)/members/"
-        case .removeChatRoomMember(let roomId, let userId):
-            return "/api/chat/rooms/\(roomId)/members/\(userId)/"
-        case .sendGroupChatInvitation(let roomId, _):
-            return "/api/chat/rooms/\(roomId)/invitations/"
         case .fetchAllChatInvitations:
             return "/api/chat/invitations/"
-        case .fetchDirectChatInvitations:
-            return "/api/chat/invitations/direct/"
-        case .fetchGroupChatInvitations:
-            return "/api/chat/invitations/group/"
         case .respondToDirectChatInvitation(let invitationId, _):
             return "/api/chat/invitations/direct/\(invitationId)/"
         case .respondToGroupChatInvitation(let invitationId, _):
@@ -79,7 +62,7 @@ extension ChatAPI: TargetType {
             return "/api/chat/folders/"
         case .createChatFolder:
             return "/api/chat/folders/"
-        case .updateChatFolder(let folderId, _, _, _), .deleteChatFolder(let folderId):
+        case .deleteChatFolder(let folderId):
             return "/api/chat/folders/\(folderId)/"
         case .addRoomToFolder(let folderId, _):
             return "/api/chat/folders/\(folderId)/rooms/"
@@ -90,20 +73,20 @@ extension ChatAPI: TargetType {
 
     var method: Moya.Method {
         switch self {
-        case .fetchChatRooms, .fetchChatRoomDetail, .fetchMessages, .fetchAllChatInvitations, .fetchDirectChatInvitations, .fetchGroupChatInvitations, .fetchChatFolders:
+        case .fetchChatRooms, .fetchChatRoomDetail, .fetchMessages, .fetchAllChatInvitations, .fetchChatFolders:
             return .get
-        case .createDirectChat, .createGroupChat, .markMessagesAsRead, .leaveChatRoom, .addChatRoomMembers, .sendGroupChatInvitation, .respondToDirectChatInvitation, .respondToGroupChatInvitation, .createChatFolder, .addRoomToFolder:
+        case .createDirectChat, .createGroupChat, .markMessagesAsRead, .leaveChatRoom, .respondToDirectChatInvitation, .respondToGroupChatInvitation, .createChatFolder, .addRoomToFolder:
             return .post
-        case .updateChatRoom, .updateChatFolder, .updateMessage:
+        case .updateMessage:
             return .patch
-        case .removeChatRoomMember, .deleteChatFolder, .removeRoomFromFolder, .deleteMessage:
+        case .deleteChatFolder, .removeRoomFromFolder, .deleteMessage:
             return .delete
         }
     }
 
     var task: Task {
         switch self {
-        case .fetchChatRooms, .fetchChatRoomDetail, .fetchAllChatInvitations, .fetchDirectChatInvitations, .fetchGroupChatInvitations, .fetchChatFolders, .leaveChatRoom, .removeChatRoomMember, .deleteChatFolder, .removeRoomFromFolder:
+        case .fetchChatRooms, .fetchChatRoomDetail, .fetchAllChatInvitations, .fetchChatFolders, .leaveChatRoom, .deleteChatFolder, .removeRoomFromFolder:
             return .requestPlain
         case .createDirectChat(let userId):
             let request = CreateDirectChatRequest(userId: userId)
@@ -111,15 +94,6 @@ extension ChatAPI: TargetType {
         case .createGroupChat(let name, let description, let memberIds):
             let request = CreateGroupChatRequest(name: name, description: description, memberIds: memberIds)
             return .requestJSONEncodable(request)
-        case .updateChatRoom(_, let name, let description):
-            var body: [String: Any] = [:]
-            if let name = name {
-                body["name"] = name
-            }
-            if let description = description {
-                body["description"] = description
-            }
-            return .requestParameters(parameters: body, encoding: JSONEncoding.default)
         case .fetchMessages(_, let page, let pageSize):
             return .requestParameters(
                 parameters: [
@@ -148,29 +122,11 @@ extension ChatAPI: TargetType {
         case .markMessagesAsRead(_, let messageIds):
             let request = MarkMessagesReadRequest(messageIds: messageIds)
             return .requestJSONEncodable(request)
-        case .addChatRoomMembers(_, let userIds):
-            let body: [String: Any] = ["user_ids": userIds]
-            return .requestParameters(parameters: body, encoding: JSONEncoding.default)
-        case .sendGroupChatInvitation(_, let userId):
-            let body: [String: Any] = ["user_id": userId]
-            return .requestParameters(parameters: body, encoding: JSONEncoding.default)
         case .respondToDirectChatInvitation(_, let action), .respondToGroupChatInvitation(_, let action):
             let body: [String: Any] = ["action": action]
             return .requestParameters(parameters: body, encoding: JSONEncoding.default)
         case .createChatFolder(let name, let color, let icon):
             let body: [String: Any] = ["name": name, "color": color, "icon": icon]
-            return .requestParameters(parameters: body, encoding: JSONEncoding.default)
-        case .updateChatFolder(_, let name, let color, let icon):
-            var body: [String: Any] = [:]
-            if let name = name {
-                body["name"] = name
-            }
-            if let color = color {
-                body["color"] = color
-            }
-            if let icon = icon {
-                body["icon"] = icon
-            }
             return .requestParameters(parameters: body, encoding: JSONEncoding.default)
         case .addRoomToFolder(_, let roomId):
             let body: [String: Any] = ["room_id": roomId]

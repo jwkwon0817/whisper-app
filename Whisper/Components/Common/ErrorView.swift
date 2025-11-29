@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Error View Component
 struct ErrorView: View {
     let message: String
     let retryAction: (() -> Void)?

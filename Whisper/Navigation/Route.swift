@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// React Navigation처럼 타입 안전한 라우팅
 enum Route: Hashable {
     case login
     case signup
@@ -18,7 +17,6 @@ enum Route: Hashable {
     case settings
     case deviceList
     
-    // Detail
     case userDetail(userId: String)
 }
 
@@ -32,7 +30,6 @@ extension Route {
             Text("회원가입")
         case .register:
             RegisterScreen(onRegisterSuccess: {
-                // 회원가입 성공 시 처리는 ContentView에서
             })
             
         case .home:

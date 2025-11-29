@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Loading View Component
 struct LoadingView: View {
     let message: String?
     
@@ -31,7 +30,6 @@ struct LoadingView: View {
     }
 }
 
-// MARK: - Loading Overlay Component
 struct LoadingOverlay: ViewModifier {
     let isLoading: Bool
     let message: String?

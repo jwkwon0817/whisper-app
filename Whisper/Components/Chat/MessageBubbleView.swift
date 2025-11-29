@@ -8,32 +8,45 @@
 import SwiftUI
 
 // MARK: - Message Bubble Component
-/// 메시지 버블 뷰
-/// Equatable 프로토콜을 준수하여 메시지 내용이 변경되지 않았다면 뷰를 다시 그리지 않음
+
 struct MessageBubbleView: View, Equatable {
     let message: Message
     let displayContent: String
+    let replyToDisplayContent: String?
     let showTime: Bool
     let showReadStatus: Bool
     let onEdit: ((Message) -> Void)?
     let onDelete: ((Message) -> Void)?
+    let onReply: ((Message) -> Void)?
     
-    init(message: Message, displayContent: String, showTime: Bool = true, showReadStatus: Bool = true, onEdit: ((Message) -> Void)? = nil, onDelete: ((Message) -> Void)? = nil) {
+    init(
+        message: Message,
+        displayContent: String,
+        replyToDisplayContent: String? = nil,
+        showTime: Bool = true,
+        showReadStatus: Bool = true,
+        onEdit: ((Message) -> Void)? = nil,
+        onDelete: ((Message) -> Void)? = nil,
+        onReply: ((Message) -> Void)? = nil
+    ) {
         self.message = message
         self.displayContent = displayContent
+        self.replyToDisplayContent = replyToDisplayContent
         self.showTime = showTime
         self.showReadStatus = showReadStatus
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onReply = onReply
     }
     
     // MARK: - Equatable
-    // 불필요한 뷰 리렌더링 방지를 위한 Equatable 구현
+
     static func == (lhs: MessageBubbleView, rhs: MessageBubbleView) -> Bool {
         lhs.message == rhs.message &&
-        lhs.displayContent == rhs.displayContent &&
-        lhs.showTime == rhs.showTime &&
-        lhs.showReadStatus == rhs.showReadStatus
+            lhs.displayContent == rhs.displayContent &&
+            lhs.replyToDisplayContent == rhs.replyToDisplayContent &&
+            lhs.showTime == rhs.showTime &&
+            lhs.showReadStatus == rhs.showReadStatus
     }
     
     var body: some View {
@@ -43,16 +56,16 @@ struct MessageBubbleView: View, Equatable {
             }
             
             VStack(alignment: message.isFromCurrentUser ? .trailing : .leading, spacing: 4) {
-                // 답장 대상 표시
                 if let replyTo = message.replyTo {
-                    ReplyToPreviewView(replyTo: replyTo)
-                        .padding(.bottom, 4)
+                    ReplyToPreviewView(
+                        replyTo: replyTo,
+                        displayContent: replyToDisplayContent ?? replyTo.displayContent // 수정
+                    )
+                    .padding(.bottom, 4)
                 }
                 
-                // 메시지 내용
                 messageContentView
                 
-                // 시간 및 읽음 상태
                 messageMetadataView
             }
             .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: message.isFromCurrentUser ? .trailing : .leading)
@@ -65,7 +78,6 @@ struct MessageBubbleView: View, Equatable {
         .padding(.vertical, 4)
     }
     
-    // MARK: - Message Content View
     private var messageContentView: some View {
         Group {
             if let asset = message.asset {
@@ -78,6 +90,12 @@ struct MessageBubbleView: View, Equatable {
                     .foregroundColor(message.isFromCurrentUser ? .white : .primary)
                     .cornerRadius(16)
                     .contextMenu {
+                        Button {
+                            onReply?(message)
+                        } label: {
+                            Label("답장", systemImage: "arrowshape.turn.up.left")
+                        }
+                        
                         if message.isFromCurrentUser {
                             if message.messageType == .text {
                                 Button {
@@ -98,7 +116,6 @@ struct MessageBubbleView: View, Equatable {
         }
     }
     
-    // MARK: - Message Metadata View
     private var messageMetadataView: some View {
         HStack(spacing: 4) {
             if showTime, let date = message.createdAtDate {
@@ -116,9 +133,9 @@ struct MessageBubbleView: View, Equatable {
     }
 }
 
-// MARK: - Reply To Preview Component
 struct ReplyToPreviewView: View {
     let replyTo: ReplyToMessage
+    let displayContent: String
     
     var body: some View {
         HStack(spacing: 8) {
@@ -127,24 +144,35 @@ struct ReplyToPreviewView: View {
                 .frame(width: 3)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(replyTo.sender.name)
+                HStack(spacing: 4) {
+                    Image(systemName: "arrowshape.turn.up.left.fill")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                    Text(replyTo.sender?.name ?? "알 수 없음")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                }
+                
+                Text(displayContent)
                     .font(.caption)
-                    .fontWeight(.semibold)
-                Text(replyTo.content)
-                    .font(.caption)
+                    .foregroundColor(.secondary)
                     .lineLimit(1)
             }
             
             Spacer()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(Color.gray.opacity(0.1))
-        .cornerRadius(8)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
+        )
     }
 }
 
-// MARK: - Asset Message Component
 struct AssetMessageView: View, Equatable {
     let asset: Asset
     let messageType: Message.MessageType
@@ -157,21 +185,6 @@ struct AssetMessageView: View, Equatable {
         Group {
             switch messageType {
             case .image:
-                // MARK: - 이미지 캐싱 개선 제안
-                // AsyncImage는 기본적으로 URLCache를 사용하지만, 캐싱 정책을 세밀하게 제어하기 어려움
-                // 개선 방안:
-                // 1. Kingfisher 또는 SDWebImageSwiftUI 라이브러리 사용 권장
-                //    - 디스크 캐시 크기/만료 정책 제어 가능
-                //    - 메모리 캐시 관리 용이
-                //    - 이미지 다운샘플링 지원 (메모리 절약)
-                // 2. 커스텀 이미지 캐싱 매니저 구현
-                //    - NSCache를 사용한 메모리 캐시
-                //    - FileManager를 사용한 디스크 캐시
-                // 예시 (Kingfisher 사용 시):
-                // KFImage(URL(string: asset.url))
-                //     .placeholder { ProgressView() }
-                //     .fade(duration: 0.25)
-                //     .cacheOriginalImage()
                 AsyncImage(url: URL(string: asset.url)) { phase in
                     switch phase {
                     case .empty:
@@ -202,7 +215,6 @@ struct AssetMessageView: View, Equatable {
     }
 }
 
-// MARK: - File Message Component
 struct FileMessageView: View {
     let fileName: String
     let fileSize: Int?
@@ -239,4 +251,3 @@ struct FileMessageView: View {
         return formatter.string(fromByteCount: Int64(bytes))
     }
 }
-
