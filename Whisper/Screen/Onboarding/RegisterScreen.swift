@@ -5,8 +5,8 @@
 //  Created by  jwkwon0817 on 11/17/25.
 //
 
-import SwiftUI
 import PhotosUI
+import SwiftUI
 
 struct RegisterScreen: View {
     @Environment(\.dismiss) private var dismiss
@@ -31,7 +31,7 @@ struct RegisterScreen: View {
     var body: some View {
         VStack(spacing: 24) {
             HStack(spacing: 8) {
-                ForEach(1...3, id: \.self) { step in
+                ForEach(1 ... 3, id: \.self) { step in
                     Rectangle()
                         .fill(step <= currentStep ? Color.blue : Color.gray.opacity(0.3))
                         .frame(height: 4)
@@ -137,7 +137,8 @@ struct RegisterScreen: View {
             
             VStack(spacing: 12) {
                 if let imageData = selectedImageData,
-                   let platformImage = PlatformImage(data: imageData) {
+                   let platformImage = PlatformImage(data: imageData)
+                {
                     platformImage.image
                         .resizable()
                         .scaledToFill()
@@ -180,7 +181,7 @@ struct RegisterScreen: View {
                     .foregroundColor(.red)
             }
         }
-        .onChange(of: selectedImageItem) { oldValue, newValue in
+        .onChange(of: selectedImageItem) { _, newValue in
             Task {
                 if let data = try? await newValue?.loadTransferable(type: Data.self) {
                     selectedImageData = data
@@ -267,35 +268,29 @@ struct RegisterScreen: View {
         isLoading = true
         
         do {
-            // 1. RSA-OAEP 키 페어 생성
             let (privateKey, publicKey) = try E2EEKeyManager.shared.generateRSAKeyPair()
             
-            // 2. 공개키를 PEM 형식으로 내보내기
             let publicKeyPEM = try E2EEKeyManager.shared.exportPublicKeyToPEM(publicKey: publicKey)
             
-            // 3. 개인키를 사용자 비밀번호로 암호화
             let encryptedPrivateKey = try E2EEKeyManager.shared.encryptPrivateKey(
                 privateKey: privateKey,
                 password: password
             )
             
-            // 4. 암호화된 개인키를 JSON 문자열로 직렬화
             let encoder = JSONEncoder()
             let encryptedPrivateKeyJSON = try encoder.encode(encryptedPrivateKey)
             let encryptedPrivateKeyString = String(data: encryptedPrivateKeyJSON, encoding: .utf8)!
             
-            // 5. 기기 정보 생성
             let deviceFingerprint = DeviceManager.shared.generateDeviceFingerprint()
             let deviceName = DeviceManager.shared.getDeviceName()
             
-            // 6. 프로필 이미지를 Data로 변환 (JPEG 압축)
             var profileImageData: Data? = selectedImageData
             if let imageData = selectedImageData,
-               let platformImage = PlatformImage(data: imageData) {
+               let platformImage = PlatformImage(data: imageData)
+            {
                 profileImageData = platformImage.jpegData(quality: 0.8) ?? imageData
             }
             
-            // 7. 서버에 회원가입 요청
             _ = try await NetworkManager.shared.authService.register(
                 phoneNumber: phoneNumber,
                 password: password,
@@ -308,29 +303,18 @@ struct RegisterScreen: View {
                 deviceFingerprint: deviceFingerprint
             )
             
-            // 8. 로컬에 암호화된 개인키 저장
             E2EEKeyManager.shared.saveEncryptedPrivateKey(encryptedPrivateKey)
             
-            // 9. 기기 지문 저장
             DeviceManager.shared.saveDeviceFingerprint(deviceFingerprint)
             
-            // 10. 비밀번호를 Keychain에 저장 (복호화용)
             KeychainHelper.setItem(token: password, forAccount: "user_password")
             
-            // 11. 사용자 정보 가져오기 및 CurrentUser 업데이트
             do {
                 let user = try await NetworkManager.shared.userService.fetchMe()
                 CurrentUser.shared.update(user: user)
-            } catch {
-                print("⚠️ 사용자 정보 가져오기 실패: \(error)")
-                // 회원가입은 성공했으므로 계속 진행
-            }
+            } catch {}
             
-            // 12. WebSocket 연결 (알림 수신용)
             NotificationManager.shared.connect()
-            #if DEBUG
-            print("✅ [RegisterScreen] 회원가입 성공 - WebSocket 연결")
-            #endif
             
             dismiss()
             onRegisterSuccess?()
@@ -340,9 +324,6 @@ struct RegisterScreen: View {
         
         isLoading = false
     }
-    
-    // MARK: - Helper Methods
-    // PlatformImage를 사용하도록 변경됨
 }
 
 #Preview {

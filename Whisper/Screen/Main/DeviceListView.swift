@@ -47,7 +47,7 @@ struct DeviceListView: View {
             await loadDevices()
         }
         .alert("오류", isPresented: $showError) {
-            Button("확인", role: .cancel) { }
+            Button("확인", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "알 수 없는 오류가 발생했습니다.")
         }
@@ -71,21 +71,22 @@ struct DeviceListView: View {
         do {
             let fetchedDevices = try await NetworkManager.shared.deviceService.getDevices()
             devices = fetchedDevices.sorted { device1, device2 in
-                // 주 기기 우선, 그 다음 마지막 활동 시간 순
                 if device1.isPrimary != device2.isPrimary {
                     return device1.isPrimary
                 }
-                // lastActive가 nil인 경우 뒤로
+                
                 if device1.lastActive == nil && device2.lastActive != nil {
                     return false
                 }
+                
                 if device1.lastActive != nil && device2.lastActive == nil {
                     return true
                 }
-                // 둘 다 nil이면 createdAt으로 정렬
+                
                 if device1.lastActive == nil && device2.lastActive == nil {
                     return device1.createdAt > device2.createdAt
                 }
+                
                 return (device1.lastActive ?? "") > (device2.lastActive ?? "")
             }
         } catch {
@@ -97,14 +98,11 @@ struct DeviceListView: View {
     }
 }
 
-// MARK: - Device Row View
-
 struct DeviceRowView: View {
     let device: Device
     
     var body: some View {
         HStack(spacing: 16) {
-            // 기기 아이콘
             Image(systemName: deviceIcon)
                 .font(.system(size: 32))
                 .foregroundColor(deviceColor)
@@ -117,7 +115,6 @@ struct DeviceRowView: View {
                     Text(device.deviceName)
                         .font(.headline)
                     
-                    // 주 기기 배지
                     if device.isPrimary {
                         Text("주 기기")
                             .font(.caption)
@@ -128,7 +125,6 @@ struct DeviceRowView: View {
                             .cornerRadius(4)
                     }
                     
-                    // 현재 기기 배지
                     if device.isCurrentDevice {
                         Text("현재 기기")
                             .font(.caption)
@@ -181,8 +177,6 @@ struct DeviceRowView: View {
     }
 }
 
-// MARK: - Empty Device List View
-
 struct EmptyDeviceListView: View {
     var body: some View {
         VStack(spacing: 16) {
@@ -208,4 +202,3 @@ struct EmptyDeviceListView: View {
         DeviceListView()
     }
 }
-

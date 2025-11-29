@@ -8,7 +8,6 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Image Picker
 struct ImagePicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     @Environment(\.dismiss) private var dismiss

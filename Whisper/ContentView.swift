@@ -22,7 +22,6 @@ struct ContentView: View {
             } else {
                 NavigationStack(path: $router.path) {
                     LoginScreen(onLoginSuccess: {
-                        // 로그인 성공 시 WebSocket 연결
                         NotificationManager.shared.connect()
                         isLoggedIn = true
                     })
@@ -37,17 +36,10 @@ struct ContentView: View {
             await checkAuth()
         }
         .onChange(of: isLoggedIn) { oldValue, newValue in
-            // 로그인 상태 변경 시 WebSocket 연결/해제
             if newValue {
                 NotificationManager.shared.connect()
-                #if DEBUG
-                print("✅ [ContentView] 로그인 상태 변경 - WebSocket 연결")
-                #endif
             } else {
                 NotificationManager.shared.disconnect()
-                #if DEBUG
-                print("🔌 [ContentView] 로그아웃 - WebSocket 연결 해제")
-                #endif
             }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
@@ -55,7 +47,6 @@ struct ContentView: View {
                 Task {
                     await checkAuth()
                 }
-                // 앱이 포그라운드로 돌아올 때 WebSocket 재연결
                 if isLoggedIn {
                     NotificationManager.shared.connect()
                 }

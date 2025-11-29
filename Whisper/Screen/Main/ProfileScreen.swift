@@ -69,7 +69,7 @@ struct ProfileScreen: View {
             }
         }
         .alert("로그아웃", isPresented: $showLogoutAlert) {
-            Button("취소", role: .cancel) { }
+            Button("취소", role: .cancel) {}
             Button("로그아웃", role: .destructive) {
                 Task {
                     do {
@@ -97,4 +97,3 @@ struct ProfileScreen: View {
             .environment(Router())
     }
 }
-

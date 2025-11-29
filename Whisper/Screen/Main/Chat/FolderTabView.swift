@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Folder Tab View
 struct FolderTabView: View {
     let folders: [ChatFolder]
     let selectedFolderId: String?
@@ -21,7 +20,6 @@ struct FolderTabView: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                // 전체 탭
                 FolderTabItem(
                     name: "전체",
                     color: nil,
@@ -31,12 +29,8 @@ struct FolderTabView: View {
                     onTap: {
                         onFolderSelected(nil)
                     },
-                    onLongPress: {
-                        // 전체 탭은 삭제 불가
-                    }
                 )
                 
-                // 폴더 탭들
                 ForEach(folders) { folder in
                     FolderTabItem(
                         name: folder.name,
@@ -54,7 +48,6 @@ struct FolderTabView: View {
                     )
                 }
                 
-                // 새 폴더 추가 버튼
                 Button(action: onCreateFolder) {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
@@ -91,7 +84,6 @@ struct FolderTabView: View {
     }
 }
 
-// MARK: - Folder Tab Item
 struct FolderTabItem: View {
     let name: String
     let color: Color?
@@ -138,7 +130,6 @@ struct FolderTabItem: View {
     }
 }
 
-// MARK: - Color Extension
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -146,11 +137,11 @@ extension Color {
         Scanner(string: hex).scanHexInt64(&int)
         let a, r, g, b: UInt64
         switch hex.count {
-        case 3: // RGB (12-bit)
+        case 3:
             (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
+        case 6:
             (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
+        case 8:
             (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
         default:
             (a, r, g, b) = (255, 0, 0, 0)
@@ -164,4 +155,3 @@ extension Color {
         )
     }
 }
-

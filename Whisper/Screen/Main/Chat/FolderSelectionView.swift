@@ -17,7 +17,6 @@ struct FolderSelectionView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // 폴더 없음 옵션
                 Button(action: {
                     onFolderSelected(nil)
                 }) {

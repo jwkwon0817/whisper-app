@@ -26,16 +26,13 @@ struct SettingsScreen: View {
         }
         .navigationTitle("설정")
         .alert("로그아웃", isPresented: $showLogoutAlert) {
-            Button("취소", role: .cancel) { }
+            Button("취소", role: .cancel) {}
             Button("로그아웃", role: .destructive) {
                 Task {
                     do {
                         try await NetworkManager.shared.authService.logout()
-                        // 로그아웃 성공 시 Notification 전송
                         NotificationCenter.default.post(name: .userDidLogout, object: nil)
                     } catch {
-                        // 에러 처리 (필요시)
-                        print("로그아웃 실패: \(error)")
                     }
                 }
             }
@@ -152,7 +149,6 @@ struct DeleteAccountView: View {
                 password: password
             )
             
-            // 성공 시 모달 닫기
             dismiss()
             
         } catch {
@@ -172,4 +168,3 @@ struct DeleteAccountView: View {
 #Preview("Delete Account") {
     DeleteAccountView()
 }
-

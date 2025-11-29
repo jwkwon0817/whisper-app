@@ -112,13 +112,11 @@ struct CreateFolderView: View {
         isLoading = true
         errorMessage = nil
         
-        // ChatFolderViewModel에서 낙관적 업데이트 처리
         await viewModel.createFolder(name: folderName, color: selectedColor, icon: selectedIcon)
         
         if viewModel.showError {
             errorMessage = viewModel.errorMessage
         } else {
-            // 성공 시 콜백 호출 (폴더 목록 새로고침용)
             onFolderCreated?(nil)
             dismiss()
         }
@@ -126,8 +124,6 @@ struct CreateFolderView: View {
         isLoading = false
     }
 }
-
-// MARK: - Color Circle View
 
 struct ColorCircleView: View {
     let color: Color
@@ -156,8 +152,6 @@ struct ColorCircleView: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
-
-// MARK: - Icon Circle View
 
 struct IconCircleView: View {
     let iconName: String

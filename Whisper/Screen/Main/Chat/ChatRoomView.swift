@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Chat Room View
 struct ChatRoomView: View {
     let roomId: String
     @StateObject private var viewModel: ChatRoomViewModel
@@ -79,15 +78,13 @@ struct ChatRoomView: View {
         }
         .navigationTitle(viewModel.room?.displayName ?? "채팅")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar) // 채팅방에서는 탭바 숨김
+        .toolbar(.hidden, for: .tabBar)
         .task {
-            // 현재 활성화된 채팅방 ID 등록
             router.currentActiveChatRoomId = roomId
             NotificationManager.shared.currentActiveChatRoomId = roomId
             await viewModel.loadRoom()
         }
         .onDisappear {
-            // 채팅방을 나가면 활성화된 채팅방 ID 제거
             if router.currentActiveChatRoomId == roomId {
                 router.currentActiveChatRoomId = nil
             }
@@ -134,16 +131,12 @@ struct ChatRoomView: View {
         }
     }
     
-    // MARK: - Actions
-    
     private func handleSend() {
         if let editingMessage = editingMessage {
-            // 메시지 수정
             viewModel.editMessage(editingMessage, newContent: messageText)
             self.editingMessage = nil
             messageText = ""
         } else {
-            // 메시지 전송
             Task {
                 await viewModel.sendMessage(
                     content: messageText,

@@ -13,10 +13,8 @@ private enum Constants {
     static let typingAutoStopInterval: TimeInterval = 3.0
 }
 
-/// 채팅방 화면의 ViewModel - 조율자 역할
 @MainActor
 class ChatRoomViewModel: ObservableObject {
-    
     // MARK: - Published State
     
     @Published var room: ChatRoom?
@@ -30,12 +28,8 @@ class ChatRoomViewModel: ObservableObject {
     @Published var isDecrypting = false
     @Published var isSending = false
     
-    // MARK: - Dependencies
-    
     private let roomId: String
     private let apiService: ChatService
-    
-    // MARK: - Handlers
     
     private let encryptionHandler: MessageEncryptionHandler
     private let sendingHandler: MessageSendingHandler
@@ -43,21 +37,16 @@ class ChatRoomViewModel: ObservableObject {
     private let webSocketHandler: ChatWebSocketHandler
     private let cacheManager: MessageCacheManager
     
-    // MARK: - State
-    
     private var currentPage = 1
     private var hasMoreMessages = true
     private var typingTimer: Timer?
     private var isDisconnected = false
     private var deletingMessageIds: Set<String> = []
     
-    // MARK: - Init
-    
     init(roomId: String) {
         self.roomId = roomId
         self.apiService = NetworkManager.shared.chatService
         
-        // 핸들러 초기화
         self.encryptionHandler = MessageEncryptionHandler(roomId: roomId)
         self.cacheManager = MessageCacheManager(roomId: roomId)
         self.sendingHandler = MessageSendingHandler(
@@ -67,10 +56,6 @@ class ChatRoomViewModel: ObservableObject {
         self.readReceiptHandler = ReadReceiptHandler(roomId: roomId)
         self.webSocketHandler = ChatWebSocketHandler(roomId: roomId)
         
-        #if DEBUG
-        print("✨ [ChatRoomViewModel] init - Room ID: \(roomId)")
-        #endif
-        
         setupHandlerCallbacks()
         
         Task {
@@ -78,17 +63,8 @@ class ChatRoomViewModel: ObservableObject {
         }
     }
     
-    deinit {
-        #if DEBUG
-        print("🗑️ [ChatRoomViewModel] deinit")
-        #endif
-    }
-    
-    // MARK: - Setup
-    
     private func setupHandlerCallbacks() {
-        // 암호화 핸들러 콜백
-        encryptionHandler.onDecryptionComplete = { [weak self] messageId, content in
+        encryptionHandler.onDecryptionComplete = { [weak self] _, _ in
             self?.objectWillChange.send()
         }
         
@@ -100,7 +76,6 @@ class ChatRoomViewModel: ObservableObject {
             }
         }
         
-        // 전송 핸들러 콜백
         sendingHandler.onMessageCreated = { [weak self] message in
             self?.messages.append(message)
         }
@@ -118,10 +93,9 @@ class ChatRoomViewModel: ObservableObject {
             return self?.room?.members ?? []
         }
         
-        // 읽음 확인 핸들러 콜백
         readReceiptHandler.onMessagesMarkedAsRead = { [weak self] messageIds in
             guard let self = self else { return }
-            for i in 0..<self.messages.count {
+            for i in 0 ..< self.messages.count {
                 if messageIds.contains(self.messages[i].id) && !self.messages[i].isRead {
                     self.messages[i] = self.messages[i].withReadStatus(true)
                 }
@@ -155,7 +129,7 @@ class ChatRoomViewModel: ObservableObject {
             }
         }
         
-        webSocketHandler.onReadReceipt = { [weak self] userId, messageIds in
+        webSocketHandler.onReadReceipt = { [weak self] _, messageIds in
             guard let self = self,
                   let currentUserId = CurrentUser.shared.id else { return }
             
@@ -163,7 +137,8 @@ class ChatRoomViewModel: ObservableObject {
             for (index, message) in self.messages.enumerated() {
                 if messageIds.contains(message.id),
                    let sender = message.sender,
-                   sender.id == currentUserId && !message.isRead {
+                   sender.id == currentUserId && !message.isRead
+                {
                     self.messages[index] = message.withReadStatus(true)
                     hasUpdate = true
                 }
@@ -200,13 +175,7 @@ class ChatRoomViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Public Methods
-    
     func loadRoom() async {
-        #if DEBUG
-        print("🔄 [ChatRoomViewModel] loadRoom 시작 - Room ID: \(roomId)")
-        #endif
-        
         isLoading = true
         errorMessage = nil
         isDisconnected = false
@@ -240,10 +209,6 @@ class ChatRoomViewModel: ObservableObject {
     }
     
     func loadMessages(page: Int = 1, useCache: Bool = true) async {
-        #if DEBUG
-        print("🔄 [ChatRoomViewModel] loadMessages 시작 - Page: \(page), useCache: \(useCache)")
-        #endif
-        
         if page == 1 {
             if useCache && !messages.isEmpty {
                 isLoading = false
@@ -305,7 +270,6 @@ class ChatRoomViewModel: ObservableObject {
         isSending = false
         
         if success {
-            // 임시 메시지의 원본 내용도 캐시에 저장
             if let lastMessage = messages.last, lastMessage.id.hasPrefix("temp_") {
                 cacheManager.saveSentMessageContent(messageId: lastMessage.id, content: content)
             }
@@ -342,18 +306,10 @@ class ChatRoomViewModel: ObservableObject {
             try await apiService.leaveChatRoom(roomId: roomId)
             disconnect()
             
-            #if DEBUG
-            print("✅ [ChatRoomViewModel] 채팅방 나가기 성공 - Room ID: \(roomId)")
-            #endif
-            
             return true
         } catch {
             errorMessage = error.localizedDescription
             showError = true
-            
-            #if DEBUG
-            print("❌ [ChatRoomViewModel] 채팅방 나가기 실패: \(error)")
-            #endif
             
             return false
         }
@@ -362,10 +318,6 @@ class ChatRoomViewModel: ObservableObject {
     func disconnect() {
         guard !isDisconnected else { return }
         isDisconnected = true
-        
-        #if DEBUG
-        print("🔌 [ChatRoomViewModel] disconnect 호출됨")
-        #endif
         
         Task {
             await readReceiptHandler.flushPendingReadReceipts()
@@ -382,9 +334,6 @@ class ChatRoomViewModel: ObservableObject {
         let messageId = message.id
         
         guard !deletingMessageIds.contains(messageId) else {
-            #if DEBUG
-            print("⚠️ [ChatRoomViewModel] 이미 삭제 중인 메시지: \(messageId)")
-            #endif
             return
         }
         
@@ -406,15 +355,7 @@ class ChatRoomViewModel: ObservableObject {
                 try await apiService.deleteMessage(roomId: roomId, messageId: messageId)
                 await apiService.invalidateMessageCache(for: roomId)
                 deletingMessageIds.remove(messageId)
-                
-                #if DEBUG
-                print("✅ [ChatRoomViewModel] 메시지 삭제 성공: \(messageId)")
-                #endif
             } catch {
-                #if DEBUG
-                print("❌ [ChatRoomViewModel] 메시지 삭제 실패: \(error)")
-                #endif
-                
                 deletingMessageIds.remove(messageId)
                 
                 await MainActor.run {
@@ -459,11 +400,7 @@ class ChatRoomViewModel: ObservableObject {
                     var selfPublicKeyPEM: String? = nil
                     do {
                         selfPublicKeyPEM = try await encryptionHandler.fetchUserPublicKey(userId: currentUserId)
-                    } catch {
-                        #if DEBUG
-                        print("⚠️ [ChatRoomViewModel] 내 공개키 가져오기 실패: \(error)")
-                        #endif
-                    }
+                    } catch {}
                     
                     let encryptionResult = try await encryptionHandler.encryptMessage(
                         newContent,
@@ -497,15 +434,7 @@ class ChatRoomViewModel: ObservableObject {
                         }
                     }
                 }
-                
-                #if DEBUG
-                print("✅ [ChatRoomViewModel] 메시지 수정 성공: \(messageId)")
-                #endif
-                
             } catch {
-                #if DEBUG
-                print("❌ [ChatRoomViewModel] 메시지 수정 실패: \(error)")
-                #endif
                 await MainActor.run {
                     errorMessage = "메시지 수정에 실패했습니다: \(error.localizedDescription)"
                     showError = true
@@ -533,37 +462,27 @@ class ChatRoomViewModel: ObservableObject {
     }
     
     func getDisplayContent(for message: Message) -> String {
-        // 복호화된 내용이 있으면 반환
         if let decrypted = encryptionHandler.getDecryptedContent(for: message.id) {
             return decrypted
         }
         
-        // 암호화된 메시지인 경우
         if let encryptedContent = message.encryptedContent {
-            // 내가 보낸 메시지인 경우 sentMessageContents에서 원본 찾기 (빠른 매칭)
             if message.isFromCurrentUser {
                 if let originalContent = encryptionHandler.getSentMessageContent(for: encryptedContent) {
-                    // 원본 내용을 찾았으면 저장하고 반환
                     encryptionHandler.saveDecryptedMessage(messageId: message.id, content: originalContent)
                     cacheManager.saveSentMessageContent(messageId: message.id, content: originalContent)
                     encryptionHandler.removeSentMessageContent(for: encryptedContent)
                     return originalContent
                 }
                 
-                // 로컬 캐시에서 복원 시도
                 if let savedContent = cacheManager.loadSentMessageContent(messageId: message.id) {
                     encryptionHandler.saveDecryptedMessage(messageId: message.id, content: savedContent)
                     return savedContent
                 }
             }
             
-            // 아직 복호화되지 않았고, 복호화 시도 중이 아니면 복호화 시작
             if !encryptionHandler.isDecrypting(messageId: message.id) {
                 encryptionHandler.markDecrypting(messageId: message.id)
-                
-                #if DEBUG
-                print("🔄 [getDisplayContent] Lazy Decryption 시작: \(message.id)")
-                #endif
                 
                 Task {
                     if message.isFromCurrentUser {
@@ -575,7 +494,6 @@ class ChatRoomViewModel: ObservableObject {
                                 isSelfKey: true
                             )
                         }
-                        // else: 이미 위에서 sentMessageContents와 캐시를 확인했으므로 추가 작업 불필요
                     } else {
                         await encryptionHandler.decryptMessage(
                             messageId: message.id,
@@ -594,19 +512,15 @@ class ChatRoomViewModel: ObservableObject {
     }
     
     func getReplyToDisplayContent(for replyTo: ReplyToMessage) -> String {
-        // 1. 이미 로드된 메시지 중에서 찾기
         if let originalMessage = messages.first(where: { $0.id == replyTo.id }) {
             return getDisplayContent(for: originalMessage)
         }
         
-        // 2. 복호화된 내용 캐시 확인
         if let decrypted = encryptionHandler.getDecryptedContent(for: replyTo.id) {
             return decrypted
         }
         
-        // 3. 암호화된 내용이 있으면 복호화 시도
         if let encryptedContent = replyTo.encryptedContent {
-            // 아직 복호화되지 않았고, 복호화 시도 중이 아니면 복호화 시작
             if !encryptionHandler.isDecrypting(messageId: replyTo.id) {
                 encryptionHandler.markDecrypting(messageId: replyTo.id)
                 
@@ -645,8 +559,6 @@ class ChatRoomViewModel: ObservableObject {
         objectWillChange.send()
     }
     
-    // MARK: - Private Methods
-    
     private func preloadRecipientPublicKey() async {
         guard let currentUserId = CurrentUser.shared.id,
               let members = room?.members else { return }
@@ -655,13 +567,8 @@ class ChatRoomViewModel: ObservableObject {
     }
     
     private func handleNewMessage(_ message: Message) async {
-        #if DEBUG
-        print("🔄 [ChatRoomViewModel] handleNewMessage 시작 - ID: \(message.id)")
-        #endif
-        
         guard !isDisconnected else { return }
         
-        // 임시 메시지 매칭 (내가 보낸 메시지인 경우)
         if message.isFromCurrentUser {
             let tempMessages = messages.enumerated()
                 .filter { $0.element.id.hasPrefix("temp_") }
@@ -670,11 +577,6 @@ class ChatRoomViewModel: ObservableObject {
             if let match = ChatWebSocketHandler.matchTempMessage(newMessage: message, tempMessages: tempMessages) {
                 let tempMessageId = match.tempId
                 
-                #if DEBUG
-                print("✅ [ChatRoomViewModel] 임시 메시지 매칭 성공 - 방법: \(match.matchMethod)")
-                #endif
-                
-                // 복호화된 내용 이동
                 if let decryptedContent = encryptionHandler.getDecryptedContent(for: tempMessageId) {
                     encryptionHandler.saveDecryptedMessage(messageId: message.id, content: decryptedContent)
                     cacheManager.saveSentMessageContent(messageId: message.id, content: decryptedContent)
@@ -684,21 +586,13 @@ class ChatRoomViewModel: ObservableObject {
                     }
                 }
                 
-                // 임시 메시지 제거
                 messages.remove(at: match.index)
                 sendingHandler.updateSendStatus(tempId: tempMessageId, realId: message.id, status: .sent)
             }
         }
         
-        // 중복 방지
-        guard !messages.contains(where: { $0.id == message.id }) else {
-            #if DEBUG
-            print("⚠️ [ChatRoomViewModel] 중복 메시지 무시: \(message.id)")
-            #endif
-            return
-        }
+        guard !messages.contains(where: { $0.id == message.id }) else { return }
         
-        // 1:1 채팅인 경우 복호화
         if room?.roomType == .direct, let encryptedContent = message.encryptedContent {
             if encryptionHandler.getDecryptedContent(for: message.id) == nil {
                 if message.isFromCurrentUser {
@@ -730,11 +624,6 @@ class ChatRoomViewModel: ObservableObject {
         messages.append(message)
         sortMessages()
         
-        #if DEBUG
-        print("✅ [ChatRoomViewModel] 메시지 추가 완료 - 총 개수: \(messages.count)")
-        #endif
-        
-        // 읽음 확인 전송
         if !message.isFromCurrentUser {
             await readReceiptHandler.markMessagesAsRead(messageIds: [message.id])
         }
@@ -743,81 +632,54 @@ class ChatRoomViewModel: ObservableObject {
     private func handleMessageUpdate(_ updatedMessage: Message) async {
         guard let index = messages.firstIndex(where: { $0.id == updatedMessage.id }) else { return }
         
-        // 기존 메시지와 비교하여 encryptedContent가 변경되었는지 확인
         let oldMessage = messages[index]
         let isContentChanged = oldMessage.encryptedContent != updatedMessage.encryptedContent
         
         messages[index] = updatedMessage
         
-        // 1:1 채팅이고 암호화된 메시지인 경우 재복호화
         let shouldDecrypt = (room?.roomType == .direct) || (updatedMessage.encryptedContent != nil)
         
         if shouldDecrypt, let encryptedContent = updatedMessage.encryptedContent {
-            // 내용이 변경되었거나 아직 복호화되지 않은 경우
             if isContentChanged || encryptionHandler.getDecryptedContent(for: updatedMessage.id) == nil {
-                // 기존 복호화 내용을 삭제하지 않고, 새로운 내용으로 덮어쓰기 위해 force: true 사용
-                // 이렇게 하면 복호화 중에는 이전 내용이 보이다가 완료되면 새 내용으로 자연스럽게 전환됨
-            
-                // 내가 수정한 메시지인 경우
-            if updatedMessage.isFromCurrentUser {
-                    // 1. 원본 내용을 캐시에서 찾기 시도 (가장 빠름)
+                if updatedMessage.isFromCurrentUser {
                     if let originalContent = encryptionHandler.getSentMessageContent(for: encryptedContent) {
                         encryptionHandler.saveDecryptedMessage(messageId: updatedMessage.id, content: originalContent)
                         cacheManager.saveSentMessageContent(messageId: updatedMessage.id, content: originalContent)
                         encryptionHandler.removeSentMessageContent(for: encryptedContent)
-                    }
-                    // 2. Self Key로 복호화 시도
-                    else if let selfEncryptedSessionKey = updatedMessage.selfEncryptedSessionKey {
-                    await encryptionHandler.decryptMessage(
-                        messageId: updatedMessage.id,
-                        encryptedContent: encryptedContent,
-                        encryptedSessionKey: selfEncryptedSessionKey,
+                    } else if let selfEncryptedSessionKey = updatedMessage.selfEncryptedSessionKey {
+                        await encryptionHandler.decryptMessage(
+                            messageId: updatedMessage.id,
+                            encryptedContent: encryptedContent,
+                            encryptedSessionKey: selfEncryptedSessionKey,
                             isSelfKey: true,
                             force: true
-                    )
-                }
-                } 
-                // 상대방이 수정한 메시지인 경우
-                else {
-                if let encryptedSessionKey = updatedMessage.encryptedSessionKey {
-                    await encryptionHandler.decryptMessage(
-                        messageId: updatedMessage.id,
-                        encryptedContent: encryptedContent,
-                        encryptedSessionKey: encryptedSessionKey,
+                        )
+                    }
+                } else {
+                    if let encryptedSessionKey = updatedMessage.encryptedSessionKey {
+                        await encryptionHandler.decryptMessage(
+                            messageId: updatedMessage.id,
+                            encryptedContent: encryptedContent,
+                            encryptedSessionKey: encryptedSessionKey,
                             isSelfKey: false,
                             force: true
-                    )
+                        )
                     }
                 }
             }
         } else {
-            // 복호화가 필요 없는 경우 (일반 텍스트 수정)
             objectWillChange.send()
         }
-        
-        #if DEBUG
-        print("✅ [ChatRoomViewModel] 메시지 수정 처리 완료")
-        #endif
     }
     
     private func handleMessageDelete(_ messageId: String) async {
-        // 이미 삭제 중인 메시지면 중복 처리 방지
-        if deletingMessageIds.contains(messageId) {
-            #if DEBUG
-            print("⚠️ [ChatRoomViewModel] 이미 삭제 처리 중인 메시지, WebSocket 이벤트 무시: \(messageId)")
-            #endif
-            return
-        }
+        if deletingMessageIds.contains(messageId) { return }
         
         withAnimation {
             messages.removeAll { $0.id == messageId }
         }
         
         await encryptionHandler.removeDecryptedMessage(messageId: messageId)
-        
-        #if DEBUG
-        print("✅ [ChatRoomViewModel] 메시지 삭제 완료")
-        #endif
     }
     
     private func sortMessages() {
@@ -826,7 +688,8 @@ class ChatRoomViewModel: ObservableObject {
         
         messages.sort { m1, m2 in
             guard let date1 = formatter.date(from: m1.createdAt),
-                  let date2 = formatter.date(from: m2.createdAt) else {
+                  let date2 = formatter.date(from: m2.createdAt)
+            else {
                 return m1.createdAt < m2.createdAt
             }
             return date1 < date2
